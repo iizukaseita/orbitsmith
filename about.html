@@ -14,11 +14,12 @@
   .logo-icon{width:28px;height:28px;}
   .logo-text{font-family:'Orbitron',sans-serif;font-weight:700;font-size:14px;letter-spacing:3px;color:#fff;}
   .logo-text span{color:#00e5ff;}
-  .nav-links{display:flex;align-items:center;gap:12px;}
-  .nav-link{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-decoration:none;padding:4px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;transition:all 0.2s;}
+  .nav-links{display:flex;align-items:center;gap:12px;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;}
+  .nav-links::-webkit-scrollbar{display:none;}
+  .nav-link{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-decoration:none;padding:4px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;transition:all 0.2s;flex-shrink:0;white-space:nowrap;}
   .nav-link:hover{color:#00e5ff;border-color:rgba(0,229,255,0.3);}
   .nav-link.active{color:#00e5ff;border-color:rgba(0,229,255,0.25);}
-  .lang-selector{position:relative;}
+  .lang-selector{position:relative;flex-shrink:0;}
   .lang-current{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;color:rgba(255,255,255,0.45);cursor:pointer;padding:4px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;transition:all 0.2s;}
   .lang-current:hover{color:#00e5ff;border-color:rgba(0,229,255,0.3);}
   .lang-dropdown{display:none;position:absolute;top:28px;right:0;background:rgba(10,14,26,0.96);border:1px solid rgba(0,229,255,0.12);border-radius:6px;overflow:hidden;min-width:120px;backdrop-filter:blur(12px);z-index:200;}
