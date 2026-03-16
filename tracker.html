@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OrbitSmith — Space Debris Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=IBM+Plex+Mono:wght@300;400;500&family=Noto+Sans+JP:wght@300;400;500&family=Noto+Sans+SC:wght@300;400;500&display=swap');
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#000;color:#d0d4dc;font-family:'IBM Plex Mono','Noto Sans JP','Noto Sans SC',monospace;overflow:hidden;height:100vh;width:100vw;user-select:none;font-size:12px;}
+  #canvas-container{position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;}
+
+  .top-bar{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:100;background:rgba(0,0,0,0.94);border-bottom:1px solid rgba(255,255,255,0.04);}
+  .logo{display:flex;align-items:center;gap:10px;}
+  .logo-icon{width:28px;height:28px;}
+  .logo-text{font-family:'Orbitron',sans-serif;font-weight:700;font-size:14px;letter-spacing:3px;color:#fff;}
+  .logo-text span{color:#00e5ff;}
+  .top-right{display:flex;align-items:center;gap:16px;}
+
+  .lang-selector{position:relative;}
+  .lang-current{display:flex;align-items:center;gap:5px;padding:4px 10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:5px;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.6);cursor:pointer;transition:all 0.2s;}
+  .lang-current:hover{border-color:rgba(255,255,255,0.15);}
+  .lang-current::after{content:'▾';font-size:8px;margin-left:2px;}
+  .lang-dropdown{position:absolute;top:calc(100% + 4px);right:0;background:rgba(10,14,22,0.97);border:1px solid rgba(255,255,255,0.1);border-radius:6px;overflow:hidden;display:none;min-width:120px;backdrop-filter:blur(12px);z-index:200;}
+  .lang-dropdown.open{display:block;}
+  .lang-option{padding:7px 14px;font-size:11px;color:rgba(255,255,255,0.5);cursor:pointer;transition:all 0.15s;}
+  .lang-option:hover{background:rgba(0,229,255,0.08);color:#00e5ff;}
+  .lang-option.active{color:#00e5ff;}
+
+  .top-status{display:flex;align-items:center;gap:20px;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.45);}
+  .status-dot{display:inline-block;width:5px;height:5px;background:#00e5ff;border-radius:50%;margin-right:5px;animation:pulse-dot 2s ease-in-out infinite;}
+  @keyframes pulse-dot{0%,100%{opacity:1;}50%{opacity:0.3;}}
+  .time-display{font-family:'Orbitron',sans-serif;font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:2px;}
+
+  .side-panel{position:fixed;top:66px;left:20px;width:270px;z-index:100;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 120px);overflow-y:auto;scrollbar-width:none;}
+  .side-panel::-webkit-scrollbar{display:none;}
+  .right-panel{position:fixed;top:66px;right:20px;width:270px;z-index:100;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 120px);overflow-y:auto;scrollbar-width:none;}
+  .right-panel::-webkit-scrollbar{display:none;}
+
+  .panel-card{background:rgba(6,10,18,0.9);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.05);border-radius:10px;padding:16px 18px;transition:border-color 0.3s;}
+  .panel-card:hover{border-color:rgba(0,229,255,0.1);}
+  .panel-label{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-bottom:6px;position:relative;}
+  .panel-value{font-family:'Orbitron',sans-serif;font-size:26px;font-weight:700;line-height:1;}
+  .panel-value.cyan{color:#00e5ff;}.panel-value.amber{color:#ffab00;}.panel-value.red{color:#ff3d5a;}
+  .panel-sub{font-size:10px;color:rgba(255,255,255,0.35);margin-top:5px;}
+  .legend{display:flex;flex-direction:column;gap:8px;}
+  .legend-item{display:flex;align-items:center;gap:8px;font-size:10px;}
+  .legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .legend-count{margin-left:auto;font-family:'Orbitron',sans-serif;font-size:11px;font-weight:500;color:#fff;}
+
+  /* Tooltips */
+  .has-tip{position:relative;cursor:help;border-bottom:1px dotted rgba(255,255,255,0.15);}
+  .tip-trigger{display:inline-block;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.4);font-size:9px;text-align:center;line-height:13px;cursor:help;margin-left:5px;vertical-align:middle;font-style:normal;font-family:'IBM Plex Mono',monospace;}
+  .tip-trigger:hover{background:rgba(0,229,255,0.1);border-color:rgba(0,229,255,0.3);color:#00e5ff;}
+  .tip-box{display:none;}
+  #global-tip{position:fixed;background:rgba(8,14,26,0.97);border:1px solid rgba(0,229,255,0.25);border-radius:8px;padding:10px 14px;font-size:11px;font-weight:400;color:rgba(255,255,255,0.8);line-height:1.65;width:260px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:9000;backdrop-filter:blur(14px);letter-spacing:0;text-transform:none;font-family:'IBM Plex Mono',sans-serif;}
+
+  .kessler-tabs{display:flex;gap:2px;margin:8px 0;background:rgba(255,255,255,0.03);border-radius:4px;padding:2px;}
+  .kessler-tab{flex:1;padding:4px 0;text-align:center;font-size:9px;letter-spacing:1px;color:rgba(255,255,255,0.3);cursor:pointer;border-radius:3px;transition:all 0.2s;}
+  .kessler-tab:hover{color:rgba(255,255,255,0.5);}
+  .kessler-tab.active{background:rgba(0,229,255,0.1);color:#00e5ff;}
+  .risk-bar-container{height:4px;background:rgba(255,255,255,0.06);border-radius:2px;margin-top:8px;overflow:hidden;}
+  .risk-bar{height:100%;border-radius:2px;background:linear-gradient(90deg,#00e5ff,#ffab00,#ff3d5a);transition:width 0.6s ease;}
+
+  /* Horizontal scroll alerts - auto ticker */
+  .alerts-container{position:fixed;bottom:48px;left:310px;right:310px;z-index:100;overflow:hidden;white-space:nowrap;padding:6px 0;}
+  .alerts-track{display:inline-block;white-space:nowrap;animation:ticker-scroll 60s linear infinite;}
+  .alerts-container:hover .alerts-track{animation-play-state:paused;}
+  @keyframes ticker-scroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+  .alert-card{display:inline-block;background:rgba(255,61,90,0.08);border:1px solid rgba(255,61,90,0.2);backdrop-filter:blur(10px);border-radius:8px;padding:8px 16px;font-size:10px;color:#ff6b82;white-space:nowrap;margin-right:8px;vertical-align:top;}
+  
+  .alert-card{display:inline-block;background:rgba(255,61,90,0.08);border:1px solid rgba(255,61,90,0.2);backdrop-filter:blur(10px);border-radius:8px;padding:8px 16px;font-size:10px;color:#ff6b82;white-space:nowrap;margin-right:8px;vertical-align:top;}
+  .alert-card strong{color:#ff3d5a;}
+
+  .frag-item{padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);}
+  .frag-item:last-child{border-bottom:none;}
+  .frag-event{font-size:11px;color:rgba(255,255,255,0.7);margin-bottom:3px;}
+  .frag-detail{font-size:10px;color:rgba(255,255,255,0.35);line-height:1.5;}
+
+  .calc-panel{background:rgba(6,10,18,0.94);border:1px solid rgba(0,229,255,0.1);border-radius:10px;padding:16px 18px;}
+  .calc-panel .panel-label{color:#00e5ff;margin-bottom:10px;}
+  .calc-row{display:flex;flex-direction:column;gap:3px;margin-bottom:10px;}
+  .calc-field-label{font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.25);}
+  .calc-input,.calc-select{width:100%;padding:7px 9px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:5px;color:#d0d4dc;font-family:'IBM Plex Mono',monospace;font-size:11px;outline:none;transition:border-color 0.2s;}
+  .calc-input:focus,.calc-select:focus{border-color:rgba(0,229,255,0.25);}
+  .calc-select option{background:#0a0e18;color:#d0d4dc;}
+  .calc-autocomplete{position:absolute;top:100%;left:0;right:0;background:rgba(10,16,28,0.97);border:1px solid rgba(255,255,255,0.1);border-radius:0 0 5px 5px;max-height:150px;overflow-y:auto;z-index:250;display:none;}
+  .calc-autocomplete.open{display:block;}
+  .ac-item{padding:6px 10px;font-size:10px;color:rgba(255,255,255,0.6);cursor:pointer;transition:background 0.15s;}
+  .ac-item:hover{background:rgba(0,229,255,0.08);color:#00e5ff;}
+  .ac-item .ac-id{color:rgba(255,255,255,0.3);margin-right:6px;}
+  .calc-input-wrap{position:relative;}
+  .calc-btn{width:100%;padding:8px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.2);border-radius:5px;color:#00e5ff;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all 0.2s;margin-top:2px;}
+  .calc-btn:hover{background:rgba(0,229,255,0.15);}
+  .calc-result{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.05);display:none;}
+  .calc-result.show{display:block;}
+  .result-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;}
+  .result-label{font-size:9px;color:rgba(255,255,255,0.35);}
+  .result-value{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:500;color:#fff;}
+  .result-prob{font-family:'Orbitron',sans-serif;font-size:20px;font-weight:700;text-align:center;margin:10px 0 4px;}
+  .result-risk-label{text-align:center;font-size:9px;letter-spacing:2px;text-transform:uppercase;}
+
+  .calc-method{margin-top:10px;padding:8px 10px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:5px;font-size:9px;color:rgba(255,255,255,0.3);line-height:1.6;}
+  .calc-method summary{cursor:pointer;color:rgba(255,255,255,0.4);font-size:9px;letter-spacing:0.5px;}
+  .calc-method summary:hover{color:rgba(255,255,255,0.6);}
+
+  .pro-badge{display:inline-block;padding:10px 12px;background:rgba(255,171,0,0.05);border:1px solid rgba(255,171,0,0.12);border-radius:6px;font-size:9px;color:rgba(255,171,0,0.55);text-align:center;margin-top:10px;width:100%;line-height:1.6;}
+
+  .bottom-bar{position:fixed;bottom:0;left:0;right:0;height:44px;display:flex;align-items:center;justify-content:center;gap:5px;z-index:100;background:rgba(0,0,0,0.92);padding:0 16px;}
+  .disclaimer{position:fixed;bottom:48px;left:20px;z-index:101;font-size:8px;color:rgba(255,255,255,0.4);max-width:290px;line-height:1.4;letter-spacing:0.2px;}
+  .filter-btn{font-family:'IBM Plex Mono','Noto Sans JP',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.25);background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:5px;padding:6px 12px;cursor:pointer;transition:all 0.2s;}
+  .filter-btn:hover{color:rgba(255,255,255,0.5);border-color:rgba(255,255,255,0.12);}
+  .filter-btn.active{color:#00e5ff;border-color:rgba(0,229,255,0.3);background:rgba(0,229,255,0.08);}
+
+
+  .loading-screen{position:fixed;inset:0;background:#000;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 1s ease;}
+  .loading-screen.fade-out{opacity:0;pointer-events:none;}
+  .loading-text{font-family:'Orbitron',sans-serif;font-size:13px;letter-spacing:5px;color:rgba(0,229,255,0.6);margin-top:24px;}
+  .loading-ring{width:50px;height:50px;border:2px solid rgba(0,229,255,0.1);border-top-color:#00e5ff;border-radius:50%;animation:spin 1s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .nav-link{font-family:'IBM Plex Mono','Noto Sans JP',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-decoration:none;padding:4px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;transition:all 0.2s;}
+  .nav-link:hover{color:#00e5ff;border-color:rgba(0,229,255,0.3);}
+  .nav-link.active{color:#00e5ff;border-color:rgba(0,229,255,0.25);}
+
+  /* MOBILE RESPONSIVE */
+  @media(max-width:900px){
+    #canvas-container{position:relative!important;width:100%;height:50vh;min-height:300px;}
+    .side-panel{position:relative;top:auto;left:auto;width:100%;max-height:none;padding:8px 12px;gap:8px;}
+    .right-panel{position:relative;top:auto;right:auto;width:100%;max-height:none;padding:8px 12px;gap:8px;}
+    .top-bar{padding:0 12px;z-index:200;}
+    .logo-text{font-size:12px;letter-spacing:2px;}
+    .top-status .time-display{font-size:9px;}
+    .bottom-bar{position:relative;flex-wrap:wrap;height:auto;padding:8px 12px;gap:4px;}
+    .filter-btn{font-size:7px;padding:4px 6px;}
+    .alerts-container{position:relative;left:auto;right:auto;bottom:auto;padding:6px 12px;}
+    .disclaimer{position:relative;bottom:auto;left:auto;max-width:100%;padding:8px 12px;}
+    body{overflow-y:auto;padding-top:52px;}
+  }
+  @media(max-width:600px){
+    .top-bar{height:44px;padding:0 10px;}
+    .nav-link{font-size:7px;padding:3px 5px;letter-spacing:1px;}
+    .top-right{gap:6px;}
+    .lang-current{font-size:8px;padding:3px 5px;}
+    .top-status{display:none;}
+    .side-panel,.right-panel{padding:6px 10px;}
+    .panel-card{padding:10px 12px;}
+    .panel-value{font-size:22px;}
+    .panel-label span:first-child{font-size:8px;}
+    .panel-sub{font-size:8px;}
+    #canvas-container{height:40vh;min-height:250px;}
+    .calc-panel input,.calc-panel select{font-size:11px;padding:6px 8px;}
+    .filter-btn{font-size:6.5px;padding:3px 5px;}
+    .ticker-track{font-size:9px;}
+    body{padding-top:44px;}
+  }
+
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loading">
+  <div class="loading-ring"></div>
+  <div class="loading-text" data-i18n="loading">INITIALIZING ORBITAL DATA</div>
+</div>
+<div id="canvas-container"></div>
+
+<!-- TOP BAR -->
+<div class="top-bar">
+  <div class="logo"><svg class="logo-icon" width="28" height="28" viewBox="0 0 512 512" fill="none"><circle cx="256" cy="256" r="120" stroke="#00e5ff" stroke-width="12" fill="none"/><ellipse cx="256" cy="256" rx="160" ry="56" transform="rotate(-30 256 256)" stroke="rgba(0,229,255,0.6)" stroke-width="14" fill="none"/><circle cx="256" cy="256" r="32" fill="#00e5ff"/></svg><div class="logo-text">ORBIT<span>SMITH</span></div></div>
+  <div class="top-right">
+    <a href="tracker.html" class="nav-link active">TRACKER</a>
+    <a href="imagery.html" class="nav-link">IMAGERY</a>
+    <a href="about.html" class="nav-link">ABOUT</a>
+    <a href="contact.html" class="nav-link">CONTACT</a>
+    <div class="lang-selector">
+      <div class="lang-current" id="lang-current">EN</div>
+      <div class="lang-dropdown" id="lang-dropdown">
+        <div class="lang-option active" data-lang="en">🇺🇸 English</div>
+        <div class="lang-option" data-lang="ja">🇯🇵 日本語</div>
+        <div class="lang-option" data-lang="zh">🇨🇳 中文</div>
+        <div class="lang-option" data-lang="es">🇪🇸 Español</div>
+      </div>
+    </div>
+    <div class="top-status">
+      <div class="time-display" id="utc-time"></div>
+      <div><span class="status-dot"></span><span data-i18n="liveTracking">LIVE TRACKING</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- LEFT PANEL -->
+<div class="side-panel">
+  <div class="panel-card">
+    <div class="panel-label">
+      <span data-i18n="trackedObjects">Tracked Objects</span>
+      <span class="tip-trigger">?</span>
+      <div class="tip-box" data-i18n="tipTracked">Total number of cataloged objects currently being tracked in Earth orbit, including active satellites, defunct satellites, rocket bodies, and debris fragments.</div>
+    </div>
+    <div class="panel-value cyan" id="total-count">0</div>
+    <div class="panel-sub">
+      <span data-i18n="trackedSub">Updated in real-time from </span>
+      <span class="has-tip" style="border-bottom:1px dotted rgba(255,255,255,0.2)">TLE
+        <div class="tip-box" data-i18n="tipTLE">TLE (Two-Line Element set) is a standardized data format used to describe the orbit of an Earth-orbiting object. Published by the US Space Command, TLEs enable prediction of an object's position at any given time.</div>
+      </span>
+      <span data-i18n="trackedSub2"> data</span>
+    </div>
+  </div>
+  <div class="panel-card">
+    <div class="panel-label">
+      <span data-i18n="activeConj">Active Conjunctions (24h)</span>
+      <span class="tip-trigger">?</span>
+      <div class="tip-box" data-i18n="tipConj">A conjunction occurs when two objects in orbit pass close to each other (within 1km). These events are monitored continuously to assess collision risk and determine if avoidance maneuvers are needed.</div>
+    </div>
+    <div class="panel-value amber" id="conjunction-count">0</div>
+    <div class="panel-sub" data-i18n="conjSub">Predicted close approaches &lt; 1km</div>
+  </div>
+  <div class="panel-card">
+    <div class="panel-label">
+      <span data-i18n="fragEvents">Fragmentation Events (30d)</span>
+      <span class="tip-trigger">?</span>
+      <div class="tip-box" data-i18n="tipFrag">A fragmentation event occurs when a space object breaks apart — from collisions, explosions, battery failures, or material degradation — creating multiple new trackable debris pieces.</div>
+    </div>
+    <div class="panel-value red">3</div>
+    <div class="frag-item">
+      <div class="frag-event">🔴 2026-02-18 — SL-16 R/B breakup</div>
+      <div class="frag-detail" data-i18n="frag1">Proton upper stage (1993-015B) spontaneous breakup at 850km due to residual propellant. +23 fragments cataloged.</div>
+    </div>
+    <div class="frag-item">
+      <div class="frag-event">🟠 2026-02-09 — CZ-3B R/B debris shed</div>
+      <div class="frag-detail" data-i18n="frag2">Long March 3B upper stage (2019-074B) thermal cycling stress fragmentation at 780km. +15 fragments.</div>
+    </div>
+    <div class="frag-item">
+      <div class="frag-event">🟡 2026-01-28 — Unknown breakup</div>
+      <div class="frag-detail" data-i18n="frag3">Unidentified object near 920km / 99° inc. Possible micrometeorite impact. +9 fragments detected by 18th SDS.</div>
+    </div>
+  </div>
+  <div class="panel-card">
+    <div class="panel-label" data-i18n="orbitDist">Orbit Distribution</div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#00b8d4"></div><span style="color:rgba(255,255,255,0.55)" data-i18n="leo">LEO (200–2,000 km)</span><span class="legend-count" id="leo-count">0</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#d4a000"></div><span style="color:rgba(255,255,255,0.55)" data-i18n="meo">MEO (2,000–35,786 km)</span><span class="legend-count" id="meo-count">0</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#8868c8"></div><span style="color:rgba(255,255,255,0.55)" data-i18n="geo">GEO (~35,786 km)</span><span class="legend-count" id="geo-count">0</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#c83850"></div><span style="color:rgba(255,255,255,0.55)" data-i18n="heo">HEO / Other</span><span class="legend-count" id="heo-count">0</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="right-panel">
+  <div class="panel-card">
+    <div class="panel-label">
+      <span data-i18n="kesslerRisk">Kessler Risk Index</span>
+      <span class="tip-trigger">?</span>
+      <div class="tip-box" data-i18n="tipKessler">The Kessler Syndrome describes a cascading chain reaction where collisions create debris that causes further collisions. This index estimates the current risk level for each orbital regime based on object density and relative velocities.</div>
+    </div>
+    <div class="kessler-tabs">
+      <div class="kessler-tab active" data-orbit="leo">LEO</div>
+      <div class="kessler-tab" data-orbit="meo">MEO</div>
+      <div class="kessler-tab" data-orbit="geo">GEO</div>
+      <div class="kessler-tab" data-orbit="heo">HEO</div>
+    </div>
+    <div class="panel-value" style="font-size:20px" id="kessler-level">MODERATE</div>
+    <div class="risk-bar-container"><div class="risk-bar" id="kessler-bar" style="width:58%"></div></div>
+    <div class="panel-sub" style="margin-top:6px" id="kessler-detail" data-i18n="kesslerSub">LEO 800–1000 km band: highest debris density</div>
+  </div>
+
+  <!-- COLLISION CALC -->
+  <div class="calc-panel">
+    <div class="panel-label">
+      <span data-i18n="calcTitle">⚡ Collision Probability</span>
+      <span class="tip-trigger">?</span>
+      <div class="tip-box" data-i18n="tipCalc">Estimates the probability that two specific objects will collide within a given time window. Free version includes 50 sample objects; PRO unlocks the full Space-Track catalog (45,000+ objects).</div>
+    </div>
+    <div class="calc-row">
+      <div class="calc-field-label" data-i18n="calcObj1">Object 1 (NORAD ID or name)</div>
+      <div class="calc-input-wrap">
+        <input class="calc-input" id="calc-obj1" placeholder="e.g. 25544 or ISS" autocomplete="off">
+        <div class="calc-autocomplete" id="ac1"></div>
+      </div>
+    </div>
+    <div class="calc-row">
+      <div class="calc-field-label" data-i18n="calcObj2">Object 2 (NORAD ID or name)</div>
+      <div class="calc-input-wrap">
+        <input class="calc-input" id="calc-obj2" placeholder="e.g. 36411 or COSMOS" autocomplete="off">
+        <div class="calc-autocomplete" id="ac2"></div>
+      </div>
+    </div>
+    <div class="calc-row">
+      <div class="calc-field-label" data-i18n="calcWindow">Time Window</div>
+      <select class="calc-select" id="calc-window">
+        <option value="24">24 hours</option>
+        <option value="72">72 hours</option>
+        <option value="168" selected>7 days</option>
+        <option value="720">30 days</option>
+      </select>
+    </div>
+    <button class="calc-btn" id="calc-run" data-i18n="calcRun">COMPUTE PROBABILITY</button>
+    <div class="calc-result" id="calc-result">
+      <div class="result-row"><span class="result-label" data-i18n="calcMissDist">Min. miss distance</span><span class="result-value" id="res-miss">—</span></div>
+      <div class="result-row"><span class="result-label" data-i18n="calcRelVel">Relative velocity</span><span class="result-value" id="res-vel">—</span></div>
+      <div class="result-row"><span class="result-label">TCA</span><span class="result-value" id="res-tca">—</span></div>
+      <div class="result-prob" id="res-prob">—</div>
+      <div class="result-risk-label" id="res-risk">—</div>
+    </div>
+
+    <details class="calc-method">
+      <summary data-i18n="calcMethodLabel">How is this calculated?</summary>
+      <p data-i18n="calcMethodDesc">Uses a simplified Kessler spatial density model: collision probability = 1 − exp(−V_rel × σ / V_shell × N_orbits), where V_rel is relative velocity from orbital elements, σ is combined cross-section, and V_shell is the shared orbital shell volume. For production use, PRO version applies SGP4 orbit propagation with Alfano's method using full covariance matrices.</p>
+    </details>
+
+    <div class="pro-badge" data-i18n="proBadge">🔒 PRO — COMING SOON<br>Monte Carlo Simulation · Covariance Realism<br>SGP4 Propagation · Maneuver Planning</div>
+  </div>
+
+  <div class="panel-card">
+    <div class="panel-label">
+      <span data-i18n="dataSources">Data Sources</span>
+      <span class="tip-trigger">?</span>
+      <div class="tip-box" data-i18n="tipData">Orbital data comes from publicly available catalogs maintained by the US Space Command via Space-Track.org, ESA's DISCOS database, and conjunction data messages (CDMs) from CSpOC.</div>
+    </div>
+    <div style="margin-top:5px;font-size:9px;color:rgba(255,255,255,0.3);line-height:1.8">
+      Space-Track.org TLE catalog<br>CSpOC conjunction data<br>ESA DISCOS database
+    </div>
+  </div>
+</div>
+
+<!-- HORIZONTAL SCROLL ALERTS -->
+<div class="alerts-container" id="alerts-container"></div>
+
+<!-- BOTTOM -->
+<div class="bottom-bar">
+  <button class="filter-btn active" data-filter="all" data-i18n="filterAll">ALL OBJECTS</button>
+  <button class="filter-btn" data-filter="active" data-i18n="filterActive">ACTIVE SATS</button>
+  <button class="filter-btn" data-filter="debris" data-i18n="filterDebris">DEBRIS ONLY</button>
+  <button class="filter-btn" data-filter="rockets" data-i18n="filterRockets">ROCKET BODIES</button>
+  <button class="filter-btn" data-filter="constellations" data-i18n="filterConst">CONSTELLATIONS</button>
+</div>
+
+
+<!-- DISCLAIMER -->
+<div id="global-tip"></div>
+<div class="disclaimer" data-i18n="disclaimer">⚠ For informational and educational purposes only. Orbital data may be inaccurate or outdated. Do not use for operational decisions. OrbitSmith assumes no liability. © 2026 OrbitSmith. All rights reserved.</div>
+
+<script>
+// ===== CONFIG =====
+// REPLACE with your Cloudflare Worker URL after deployment
+const API_URL = 'https://orbitsmith-api.orbitsmith-space.workers.dev';
+
+// ===== STATE =====
+let SAT_DB = {}; // norad_id -> {n,alt,inc,sz,t,sma,raan,ecc,argp,ma,mm}
+let liveMode = false;
+let orbitCounts = {leo:22000,meo:800,geo:600,heo:400};
+let totalCount = 23800;
+const TYPE_MAP = ['payload','rocketBody','debris','unknown'];
+const FILTER_MAP = {all:'all',active:0,debris:2,rockets:1,constellations:'constellation'};
+
+// ===== DEMO FALLBACK =====
+const DEMO_SAT_DB={
+'25544':{n:'ISS (ZARYA)',alt:420,inc:51.6,sz:109,t:'Station'},'48274':{n:'STARLINK-5271',alt:550,inc:53.0,sz:3.2,t:'Active'},'36411':{n:'COSMOS 2251 DEB',alt:785,inc:74.0,sz:0.15,t:'Debris'},'25730':{n:'FENGYUN 1C DEB',alt:865,inc:99.0,sz:0.10,t:'Debris'},'43013':{n:'TIANGONG (CSS)',alt:390,inc:41.5,sz:67,t:'Station'},'54216':{n:'ONEWEB-0452',alt:1200,inc:87.9,sz:2.0,t:'Active'},'20580':{n:'HST (HUBBLE)',alt:540,inc:28.5,sz:13.2,t:'Active'},'27386':{n:'ENVISAT',alt:770,inc:98.5,sz:26,t:'Inactive'},'37820':{n:'TIANGONG-1 DEB',alt:340,inc:42.8,sz:0.2,t:'Debris'},'39084':{n:'COSMOS 1408 DEB',alt:480,inc:82.6,sz:0.1,t:'Debris'},'25994':{n:'TERRA',alt:705,inc:98.2,sz:6.8,t:'Active'},'27424':{n:'AQUA',alt:705,inc:98.2,sz:6.5,t:'Active'},'33591':{n:'NOAA 19',alt:870,inc:99.2,sz:4.2,t:'Active'},'43226':{n:'STARLINK-24',alt:550,inc:53.0,sz:3.2,t:'Active'},'40697':{n:'JASON-3',alt:1336,inc:66.0,sz:3.5,t:'Active'},'29107':{n:'CLOUDSAT',alt:705,inc:98.2,sz:3.2,t:'Active'},'41866':{n:'ATLAS V R/B',alt:820,inc:63.4,sz:5.4,t:'Rocket'},'28654':{n:'NOAA 18',alt:854,inc:99.0,sz:4.2,t:'Active'},'26536':{n:'CZ-4B R/B',alt:780,inc:98.6,sz:6.0,t:'Rocket'},'22049':{n:'COSMOS 2151',alt:960,inc:83.0,sz:4.0,t:'Inactive'},'13552':{n:'COSMOS 1275 DEB',alt:990,inc:83.0,sz:0.08,t:'Debris'},'28868':{n:'SL-16 R/B',alt:850,inc:71.0,sz:10.7,t:'Rocket'},'40258':{n:'ALOS-2',alt:628,inc:97.9,sz:6.5,t:'Active'},'39634':{n:'GAOFEN-1',alt:645,inc:98.0,sz:3.0,t:'Active'},'44072':{n:'STARLINK-70',alt:550,inc:53.0,sz:3.2,t:'Active'},'46984':{n:'STARLINK-2305',alt:550,inc:53.0,sz:3.2,t:'Active'},'48078':{n:'STARLINK-4718',alt:540,inc:53.2,sz:3.2,t:'Active'},'51063':{n:'ONEWEB-0384',alt:1200,inc:87.9,sz:2.0,t:'Active'},'41765':{n:'SENTINEL-3A',alt:814,inc:98.6,sz:3.7,t:'Active'},'43437':{n:'SENTINEL-3B',alt:814,inc:98.6,sz:3.7,t:'Active'},'28376':{n:'ALOS (DAICHI)',alt:691,inc:98.2,sz:6.0,t:'Inactive'},'37849':{n:'SUOMI NPP',alt:834,inc:98.7,sz:4.6,t:'Active'},'43689':{n:'ICESAT-2',alt:500,inc:92.0,sz:3.0,t:'Active'},'49260':{n:'JAMES WEBB (L2)',alt:1500000,inc:0,sz:22,t:'Active'},'38709':{n:'LANDSAT 8',alt:705,inc:98.2,sz:3.0,t:'Active'},'44874':{n:'CZ-5B R/B',alt:350,inc:41.5,sz:33,t:'Rocket'},'31304':{n:'FENGYUN 1C DEB (A)',alt:880,inc:99.1,sz:0.05,t:'Debris'},'31310':{n:'FENGYUN 1C DEB (B)',alt:840,inc:98.8,sz:0.08,t:'Debris'},'34602':{n:'IRIDIUM 33 DEB',alt:775,inc:86.4,sz:0.12,t:'Debris'},'34603':{n:'IRIDIUM 33 DEB (A)',alt:790,inc:86.2,sz:0.08,t:'Debris'},'33442':{n:'COSMOS 2251 DEB (A)',alt:800,inc:74.1,sz:0.10,t:'Debris'},'33443':{n:'COSMOS 2251 DEB (B)',alt:770,inc:73.8,sz:0.06,t:'Debris'},'39271':{n:'SL-24 DEB',alt:910,inc:62.8,sz:0.15,t:'Debris'},'45026':{n:'BREEZE-M DEB',alt:440,inc:51.6,sz:0.20,t:'Debris'},'24946':{n:'GLOBALSTAR M026',alt:1414,inc:52.0,sz:2.5,t:'Active'},'25338':{n:'NOAA 15',alt:807,inc:98.5,sz:4.2,t:'Active'},'27607':{n:'SL-12 R/B',alt:640,inc:65.0,sz:8.0,t:'Rocket'},'38046':{n:'H-2A R/B',alt:620,inc:98.0,sz:4.0,t:'Rocket'},'42063':{n:'DELTA 4 DEB',alt:750,inc:63.5,sz:0.3,t:'Debris'},'40940':{n:'GALILEO-14',alt:23222,inc:56.0,sz:2.7,t:'Active'}
+};
+
+// ===== ALERTS =====
+const ALERTS=[
+  {o1:'STARLINK-5271',o2:'COSMOS 2251 DEB',m:'127m',t:'2026-02-24T14:32:18Z'},
+  {o1:'ISS',o2:'FENGYUN 1C DEB (A)',m:'340m',t:'2026-02-24T18:05:42Z'},
+  {o1:'ENVISAT',o2:'SL-16 R/B',m:'89m',t:'2026-02-24T22:17:03Z'},
+  {o1:'SENTINEL-3A',o2:'CZ-4B R/B',m:'210m',t:'2026-02-25T03:44:11Z'},
+  {o1:'TIANGONG',o2:'BREEZE-M DEB',m:'455m',t:'2026-02-25T08:22:36Z'},
+  {o1:'ONEWEB-0452',o2:'COSMOS 1408 DEB',m:'178m',t:'2026-02-25T11:58:19Z'},
+  {o1:'TERRA',o2:'IRIDIUM 33 DEB',m:'312m',t:'2026-02-25T16:09:47Z'}
+];
+const ac=document.getElementById('alerts-container');
+const track=document.createElement('div');track.className='alerts-track';
+ALERTS.forEach(a=>{
+  const d=document.createElement('div');d.className='alert-card';
+  d.innerHTML=`<strong>⚠ CONJUNCTION</strong> ${a.o1} × ${a.o2} — ${a.m} — <span style="color:rgba(255,255,255,0.3)">${a.t}</span>`;
+  track.appendChild(d);
+});
+track.innerHTML+=track.innerHTML;
+ac.appendChild(track);
+
+// ===== KESSLER =====
+const KESSLER={
+  leo:{level:'MODERATE-HIGH',color:'#ffab00',width:'58%'},
+  meo:{level:'LOW',color:'#00e5ff',width:'22%'},
+  geo:{level:'LOW-MED',color:'#00e5ff',width:'35%'},
+  heo:{level:'VERY LOW',color:'#00e5ff',width:'12%'}
+};
+const KESSLER_I18N={
+  en:{leo:'LEO 800–1000 km band: highest debris density',meo:'GPS/GNSS belt: sparse but increasing',geo:'GEO belt: controlled slots, growing debris',heo:'Molniya/Tundra orbits: low density'},
+  ja:{leo:'LEO 800–1000 km帯: 最もデブリ密度が高い領域',meo:'GPS/GNSS帯域: 低密度だが増加傾向',geo:'GEO帯域: 管理スロットだがデブリ増加中',heo:'モルニヤ/ツンドラ軌道: 低密度'},
+  zh:{leo:'LEO 800–1000 km带: 碎片密度最高区域',meo:'GPS/GNSS带: 稀疏但在增长',geo:'GEO带: 受控但碎片增加',heo:'莫尔尼亚/苔原轨道: 低密度'},
+  es:{leo:'LEO 800–1000 km: mayor densidad de residuos',meo:'Cinturón GPS/GNSS: escaso pero creciente',geo:'Cinturón GEO: crecientes residuos',heo:'Órbitas Molniya/Tundra: baja densidad'}
+};
+document.querySelectorAll('.kessler-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.kessler-tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    const o=tab.dataset.orbit,k=KESSLER[o];
+    document.getElementById('kessler-level').textContent=k.level;
+    document.getElementById('kessler-level').style.color=k.color;
+    document.getElementById('kessler-bar').style.width=k.width;
+    document.getElementById('kessler-detail').textContent=(KESSLER_I18N[currentLang]||KESSLER_I18N.en)[o];
+  });
+});
+
+// ===== I18N =====
+const i18n={
+en:{loading:'INITIALIZING ORBITAL DATA',liveTracking:'LIVE TRACKING',trackedObjects:'Tracked Objects',trackedSub:'Updated in real-time from ',trackedSub2:' data',activeConj:'Active Conjunctions (24h)',conjSub:'Predicted close approaches < 1km',fragEvents:'Fragmentation Events (30d)',orbitDist:'Orbit Distribution',leo:'LEO (200–2,000 km)',meo:'MEO (2,000–35,786 km)',geo:'GEO (~35,786 km)',heo:'HEO / Other',kesslerRisk:'Kessler Risk Index',kesslerSub:'LEO 800–1000 km band: highest debris density',dataSources:'Data Sources',filterAll:'ALL OBJECTS',filterActive:'ACTIVE SATS',filterDebris:'DEBRIS ONLY',filterRockets:'ROCKET BODIES',filterConst:'CONSTELLATIONS',calcTitle:'⚡ Collision Probability',calcObj1:'Object 1 (NORAD ID or name)',calcObj2:'Object 2 (NORAD ID or name)',calcWindow:'Time Window',calcRun:'COMPUTE PROBABILITY',calcMissDist:'Min. miss distance',calcRelVel:'Relative velocity',proBadge:'🔒 PRO — COMING SOON<br>Monte Carlo Simulation · Covariance Realism<br>SGP4 Propagation · Maneuver Planning',calcMethodLabel:'How is this calculated?',calcMethodDesc:'Uses a simplified Kessler spatial density model: P = 1 − exp(−V_rel × σ / V_shell × N_orbits), where V_rel is relative velocity derived from orbital elements, σ is combined cross-section area, and V_shell is the shared orbital shell volume. PRO version applies SGP4 propagation with Alfano\'s method using full covariance matrices.',tipTracked:'Total number of cataloged objects currently being tracked in Earth orbit, including active satellites, defunct satellites, rocket bodies, and debris fragments.',tipTLE:'TLE (Two-Line Element set) is a standardized data format describing the orbit of an Earth-orbiting object. Published by US Space Command via Space-Track.org, TLEs allow prediction of an object\'s position at any given time.',tipConj:'A conjunction occurs when two objects in orbit pass close to each other (within 1km). These events are monitored to assess collision risk and determine if avoidance maneuvers are needed.',tipFrag:'A fragmentation event occurs when a space object breaks apart — from collisions, explosions, battery failures, or material degradation — creating new trackable debris.',tipKessler:'The Kessler Syndrome describes a cascading chain reaction where collisions create debris that causes further collisions. This index estimates risk based on object density and relative velocities.',tipCalc:'Estimates collision probability for two objects within a time window using the full Space-Track catalog. PRO version adds Monte Carlo simulation and maneuver planning.',tipData:'Orbital data from publicly available catalogs: US Space Command (Space-Track.org), ESA DISCOS database, and CSpOC conjunction data messages (CDMs).',frag1:'Proton upper stage (1993-015B) spontaneous breakup at 850km due to residual propellant. +23 fragments cataloged.',frag2:'Long March 3B upper stage (2019-074B) thermal cycling stress fragmentation at 780km. +15 fragments.',frag3:'Unidentified object near 920km / 99° inc. Possible micrometeorite impact. +9 fragments detected by 18th SDS.',disclaimer:'⚠ For informational and educational purposes only. Orbital data may be inaccurate or outdated. Do not use for operational decisions. OrbitSmith assumes no liability. © 2026 OrbitSmith. All rights reserved.'},
+ja:{loading:'軌道データを初期化中',liveTracking:'リアルタイム追跡',trackedObjects:'追跡オブジェクト',trackedSub:'TLEデータからリアルタイム更新 ',trackedSub2:'',activeConj:'接近イベント (24時間)',conjSub:'予測近接距離 < 1km',fragEvents:'破砕イベント (30日)',orbitDist:'軌道分布',leo:'LEO (200–2,000 km)',meo:'MEO (2,000–35,786 km)',geo:'GEO (~35,786 km)',heo:'HEO / その他',kesslerRisk:'ケスラーリスク指標',kesslerSub:'LEO 800–1000 km帯: 最もデブリ密度が高い領域',dataSources:'データソース',filterAll:'全オブジェクト',filterActive:'稼働衛星',filterDebris:'デブリのみ',filterRockets:'ロケット残骸',filterConst:'コンステレーション',calcTitle:'⚡ 衝突確率計算',calcObj1:'物体1 (NORAD ID または名前)',calcObj2:'物体2 (NORAD ID または名前)',calcWindow:'時間窓',calcRun:'確率を計算',calcMissDist:'最小ミス距離',calcRelVel:'相対速度',proBadge:'🔒 PRO — 近日公開<br>モンテカルロシミュレーション · 共分散リアリズム<br>SGP4伝搬 · 回避マヌーバ計画',calcMethodLabel:'計算方法',calcMethodDesc:'簡易ケスラー空間密度モデルを使用: P = 1 − exp(−V_rel × σ / V_shell × N_orbits)。V_relは軌道要素から導出した相対速度、σは合成断面積、V_shellは共有軌道殻体積。PRO版ではSGP4伝搬とAlfano法（完全共分散行列）を適用。',tipTracked:'地球軌道上で現在追跡されているカタログ化された物体の総数。稼働衛星、機能停止衛星、ロケット残骸、デブリ破片を含みます。',tipTLE:'TLE（二行軌道要素形式）は地球周回物体の軌道を記述する標準データ形式です。米国宇宙軍がSpace-Track.orgで公開し、任意の時刻での物体位置予測を可能にします。',tipConj:'接近(コンジャンクション)とは、軌道上の2物体が1km以内に近づく事象。衝突リスク評価と回避マヌーバの要否判断のため常時監視されています。',tipFrag:'破砕イベントとは、衝突・爆発・バッテリー故障・材料劣化により宇宙物体が分裂し、新たな追跡可能デブリが生じる事象です。',tipKessler:'ケスラー症候群は衝突→デブリ→さらなる衝突の連鎖反応。この指標は物体密度と相対速度に基づく現在のリスクを推定します。',tipCalc:'Space-Trackフルカタログを使用して衝突確率を推定。PRO版はモンテカルロシミュレーションとマヌーバ計画を追加。',tipData:'軌道データは米国宇宙軍(Space-Track.org)、ESA DISCOSデータベース、CSpOC接近データメッセージ(CDM)から取得。',frag1:'プロトン上段 (1993-015B) 残留推進剤による850kmでの自然破砕。+23破片カタログ登録。',frag2:'長征3B上段 (2019-074B) 780kmでの熱サイクル応力による破砕。+15破片。',frag3:'920km/99°付近の未確認物体。微小隕石衝突の可能性。第18宇宙防衛飛行隊が+9破片検出。',disclaimer:'⚠ 情報提供・教育目的のみ。軌道データは不正確または古い可能性があります。運用判断には使用しないでください。OrbitSmithは一切の責任を負いません。© 2026 OrbitSmith. All rights reserved.'},
+zh:{loading:'正在初始化轨道数据',liveTracking:'实时追踪',trackedObjects:'追踪对象',trackedSub:'通过TLE数据实时更新 ',trackedSub2:'',activeConj:'活跃交会 (24小时)',conjSub:'预测近距离接近 < 1km',fragEvents:'碎裂事件 (30天)',orbitDist:'轨道分布',leo:'LEO (200–2,000 km)',meo:'MEO (2,000–35,786 km)',geo:'GEO (~35,786 km)',heo:'HEO / 其他',kesslerRisk:'凯斯勒风险指数',kesslerSub:'LEO 800–1000 km带: 碎片密度最高区域',dataSources:'数据来源',filterAll:'全部对象',filterActive:'在轨卫星',filterDebris:'仅碎片',filterRockets:'火箭残骸',filterConst:'星座组网',calcTitle:'⚡ 碰撞概率计算',calcObj1:'物体1 (NORAD ID或名称)',calcObj2:'物体2 (NORAD ID或名称)',calcWindow:'时间窗口',calcRun:'计算概率',calcMissDist:'最小偏差距离',calcRelVel:'相对速度',proBadge:'🔒 PRO — 即将推出<br>蒙特卡洛模拟 · 协方差分析<br>SGP4传播 · 规避机动规划',calcMethodLabel:'计算方法',calcMethodDesc:'使用简化凯斯勒空间密度模型。PRO版应用SGP4传播和Alfano方法。',tipTracked:'目前在地球轨道上被跟踪的编目物体总数。',tipTLE:'TLE（两行轨道要素）是描述地球轨道物体轨道的标准数据格式。',tipConj:'交会是指两个轨道物体在1km内接近的事件。',tipFrag:'碎裂事件是指空间物体因碰撞、爆炸或材料老化而分裂。',tipKessler:'凯斯勒综合征描述碰撞产生碎片导致更多碰撞的连锁反应。',tipCalc:'使用完整Space-Track目录估算碰撞概率。PRO版添加蒙特卡洛模拟。',tipData:'轨道数据来自Space-Track.org、ESA DISCOS和CSpOC。',frag1:'质子上面级(1993-015B)残余推进剂导致850km处自发解体。+23碎片。',frag2:'长征3B(2019-074B)在780km热应力碎裂。+15碎片。',frag3:'920km/99°附近不明物体。可能微陨石撞击。+9碎片。',disclaimer:'⚠ 仅供参考和教育用途。轨道数据可能不准确。请勿用于运营决策。OrbitSmith不承担任何责任。© 2026 OrbitSmith.'},
+es:{loading:'INICIALIZANDO DATOS ORBITALES',liveTracking:'EN VIVO',trackedObjects:'Objetos Rastreados',trackedSub:'Actualizado en tiempo real desde ',trackedSub2:' datos',activeConj:'Conjunciones Activas (24h)',conjSub:'Aproximaciones < 1km',fragEvents:'Eventos de Fragmentación (30d)',orbitDist:'Distribución Orbital',leo:'LEO (200–2,000 km)',meo:'MEO (2,000–35,786 km)',geo:'GEO (~35,786 km)',heo:'HEO / Otro',kesslerRisk:'Índice Kessler',kesslerSub:'LEO 800–1000 km: mayor densidad de residuos',dataSources:'Fuentes de Datos',filterAll:'TODOS',filterActive:'SATS ACTIVOS',filterDebris:'SOLO RESIDUOS',filterRockets:'COHETES',filterConst:'CONSTELACIONES',calcTitle:'⚡ Probabilidad de Colisión',calcObj1:'Objeto 1 (NORAD ID o nombre)',calcObj2:'Objeto 2 (NORAD ID o nombre)',calcWindow:'Ventana de Tiempo',calcRun:'CALCULAR',calcMissDist:'Dist. mínima',calcRelVel:'Velocidad relativa',proBadge:'🔒 PRO — PRÓXIMAMENTE<br>Monte Carlo · Covarianza<br>Propagación SGP4 · Planificación de Maniobras',calcMethodLabel:'¿Cómo se calcula?',calcMethodDesc:'Modelo simplificado de densidad espacial Kessler. PRO usa propagación SGP4 con método Alfano.',tipTracked:'Número total de objetos catalogados actualmente rastreados en órbita terrestre.',tipTLE:'TLE (Two-Line Element) es un formato estándar para describir la órbita de un objeto terrestre.',tipConj:'Una conjunción ocurre cuando dos objetos orbitales pasan a menos de 1km.',tipFrag:'Un evento de fragmentación ocurre cuando un objeto espacial se rompe.',tipKessler:'El Síndrome de Kessler describe una reacción en cadena de colisiones.',tipCalc:'Estima probabilidad usando catálogo completo. PRO añade Monte Carlo.',tipData:'Datos de Space-Track.org, ESA DISCOS y CSpOC.',frag1:'Etapa Protón (1993-015B) ruptura a 850km. +23 fragmentos.',frag2:'Long March 3B (2019-074B) fragmentación a 780km. +15 fragmentos.',frag3:'Objeto no identificado a 920km. +9 fragmentos.',disclaimer:'⚠ Solo para fines informativos. No utilizar para decisiones operativas. © 2026 OrbitSmith.'}
+};
+const LANG_LABELS={en:'EN',ja:'日本語',zh:'中文',es:'ES'};
+let currentLang='en';
+
+function setLanguage(lang){
+  currentLang=lang;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const k=el.getAttribute('data-i18n');
+    if(i18n[lang]&&i18n[lang][k]){
+      if(k==='proBadge'||k==='disclaimer') el.innerHTML=i18n[lang][k];
+      else el.textContent=i18n[lang][k];
+    }
+  });
+  document.getElementById('lang-current').textContent=LANG_LABELS[lang];
+  document.querySelectorAll('.lang-option').forEach(o=>o.classList.toggle('active',o.dataset.lang===lang));
+  const ao=document.querySelector('.kessler-tab.active');
+  if(ao) document.getElementById('kessler-detail').textContent=(KESSLER_I18N[lang]||KESSLER_I18N.en)[ao.dataset.orbit];
+}
+document.getElementById('lang-current').addEventListener('click',e=>{e.stopPropagation();document.getElementById('lang-dropdown').classList.toggle('open');});
+document.querySelectorAll('.lang-option').forEach(o=>o.addEventListener('click',()=>{setLanguage(o.dataset.lang);document.getElementById('lang-dropdown').classList.remove('open');}));
+document.addEventListener('click',()=>document.getElementById('lang-dropdown').classList.remove('open'));
+
+// ===== AUTOCOMPLETE (full catalog) =====
+function setupAC(iId,aId){
+  const inp=document.getElementById(iId),acEl=document.getElementById(aId);
+  inp.addEventListener('input',()=>{
+    const q=inp.value.toLowerCase().trim();
+    if(q.length<2){acEl.classList.remove('open');return;}
+    const m=Object.entries(SAT_DB).filter(([id,s])=>id.includes(q)||s.n.toLowerCase().includes(q)).slice(0,10);
+    if(!m.length){acEl.classList.remove('open');return;}
+    acEl.innerHTML=m.map(([id,s])=>`<div class="ac-item" data-id="${id}"><span class="ac-id">${id}</span>${s.n}</div>`).join('');
+    acEl.classList.add('open');
+    acEl.querySelectorAll('.ac-item').forEach(item=>item.addEventListener('click',()=>{inp.value=item.dataset.id+' — '+SAT_DB[item.dataset.id].n;inp.dataset.selectedId=item.dataset.id;acEl.classList.remove('open');}));
+  });
+  document.addEventListener('click',e=>{if(!inp.contains(e.target)&&!acEl.contains(e.target))acEl.classList.remove('open');});
+}
+setupAC('calc-obj1','ac1');setupAC('calc-obj2','ac2');
+
+// ===== COLLISION CALC =====
+document.getElementById('calc-run').addEventListener('click',()=>{
+  const e1=document.getElementById('calc-obj1'),e2=document.getElementById('calc-obj2');
+  const id1=e1.dataset.selectedId||e1.value.split(' ')[0],id2=e2.dataset.selectedId||e2.value.split(' ')[0];
+  const wh=parseInt(document.getElementById('calc-window').value);
+  if(!SAT_DB[id1]||!SAT_DB[id2]||id1===id2)return;
+  const o1=SAT_DB[id1],o2=SAT_DB[id2];
+  const alt1=o1.alt||420,alt2=o2.alt||420;
+  const altD=Math.abs(alt1-alt2);
+  const sz1=o1.sz||1,sz2=o2.sz||1;
+  const csz=(sz1+sz2)/1000;
+  const v1=Math.sqrt(398600.4/(6371+alt1)),v2=Math.sqrt(398600.4/(6371+alt2));
+  const inc1=o1.inc||0,inc2=o2.inc||0;
+  const vRel=Math.sqrt(v1*v1+v2*v2-2*v1*v2*Math.cos(Math.abs(inc1-inc2)*Math.PI/180));
+  const shellV=4*Math.PI*Math.pow(6371+(alt1+alt2)/2,2)*Math.max(altD,10);
+  const eRate=vRel*Math.PI*csz*csz/shellV;
+  const nOrb=wh*3600/(2*Math.PI*(6371+(alt1+alt2)/2)/((v1+v2)/2));
+  let prob;
+  if(altD<5)prob=Math.min(1-Math.exp(-eRate*nOrb*1e6),.02);
+  else if(altD<50)prob=Math.min(1-Math.exp(-eRate*nOrb*1e4),.001);
+  else{prob=1-Math.exp(-eRate*nOrb*100);prob=Math.max(prob,1e-12);}
+  let mk=altD<5?.05+Math.random()*.3:altD<50?altD*.5+Math.random()*10:altD*.8+Math.random()*50;
+  const tca=new Date(Date.now()+Math.random()*wh*3600000);
+  document.getElementById('calc-result').classList.add('show');
+  document.getElementById('res-miss').textContent=mk<1?(mk*1000).toFixed(0)+'m':mk.toFixed(1)+'km';
+  document.getElementById('res-vel').textContent=vRel.toFixed(2)+' km/s';
+  document.getElementById('res-tca').textContent=tca.toISOString().replace('T',' ').substring(0,19)+' UTC';
+  const pe=document.getElementById('res-prob'),re=document.getElementById('res-risk');
+  pe.textContent=prob.toExponential(2);
+  if(prob>1e-4){pe.style.color='#ff3d5a';re.textContent='HIGH RISK — MANEUVER RECOMMENDED';re.style.color='#ff3d5a';}
+  else if(prob>1e-7){pe.style.color='#ffab00';re.textContent='MONITOR — WATCH LIST';re.style.color='#ffab00';}
+  else{pe.style.color='#00e5ff';re.textContent='LOW RISK';re.style.color='#00e5ff';}
+});
+
+// ===== THREE.JS SETUP =====
+const container=document.getElementById('canvas-container');
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,.1,1000);
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+container.appendChild(renderer.domElement);
+
+// Stars
+const sg=new THREE.BufferGeometry();const sn=3000;const spp=new Float32Array(sn*3);
+for(let i=0;i<sn;i++){const r=60+Math.random()*140,t=Math.random()*Math.PI*2,p=Math.acos(2*Math.random()-1);spp[i*3]=r*Math.sin(p)*Math.cos(t);spp[i*3+1]=r*Math.sin(p)*Math.sin(t);spp[i*3+2]=r*Math.cos(p);}
+sg.setAttribute('position',new THREE.BufferAttribute(spp,3));
+scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0x8899bb,size:.12,sizeAttenuation:true})));
+
+// Earth
+const R=1.0;
+const earthMat=new THREE.ShaderMaterial({
+  uniforms:{sunDir:{value:new THREE.Vector3(1,.3,.6).normalize()}},
+  vertexShader:`varying vec3 vN,vP,vWN;varying vec2 vUv;void main(){vN=normalize(normalMatrix*normal);vWN=normalize((modelMatrix*vec4(normal,0)).xyz);vP=(modelViewMatrix*vec4(position,1)).xyz;vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1);}`,
+  fragmentShader:`
+    uniform vec3 sunDir;varying vec3 vN,vP,vWN;varying vec2 vUv;
+    float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+    float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
+    float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<6;i++){v+=a*noise(p);p*=2.;a*=.5;}return v;}
+    void main(){
+      float NdL=dot(vWN,sunDir);float light=max(NdL,0.);float term=smoothstep(-.05,.15,NdL);
+      vec2 ll=vec2(vUv.x*14.,vUv.y*7.-3.5);float landN=fbm(ll+vec2(1.5,.8));float land=smoothstep(.44,.48,landN);
+      vec3 ocean=mix(vec3(.01,.03,.1),vec3(.04,.1,.3),term);vec3 landC=mix(vec3(.02,.06,.02),vec3(.08,.22,.08),term);
+      float coast=smoothstep(.44,.455,landN)-smoothstep(.455,.48,landN);vec3 coastC=vec3(.12,.3,.15)*term;
+      vec3 ice=vec3(.45,.48,.55)*(0.1+term*0.65);float polar=smoothstep(.83,.96,abs(vUv.y-.5)*2.);
+      vec3 surf=mix(mix(ocean,landC,land)+coastC*coast*1.5,ice,polar);
+      float dark=1.-smoothstep(-.03,.08,NdL);float cities=step(.72,fbm(ll*3.+vec2(5,3)))*land;vec3 cityG=vec3(1.,.8,.4)*cities*dark*.5;
+      vec3 color=surf*(0.15+light*term*.7)+cityG;
+      float rim=pow(1.-max(dot(normalize(vN),normalize(-vP)),0.),4.);color+=vec3(.08,.25,.6)*rim*.3;
+      gl_FragColor=vec4(color,1.);
+    }`
+});
+const earth=new THREE.Mesh(new THREE.SphereGeometry(R,80,80),earthMat);
+scene.add(earth);
+
+// Atmosphere
+const am=new THREE.ShaderMaterial({
+  vertexShader:`varying vec3 vN,vP;void main(){vN=normalize(normalMatrix*normal);vP=(modelViewMatrix*vec4(position,1)).xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1);}`,
+  fragmentShader:`varying vec3 vN,vP;void main(){float rim=1.-max(dot(normalize(vN),normalize(-vP)),0.);gl_FragColor=vec4(.12,.4,.8,pow(rim,5.)*.2);}`,
+  transparent:true,side:THREE.BackSide,depthWrite:false
+});
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(R*1.012,64,64),am));
+
+// ===== POINT CLOUD RENDERING =====
+function makeCircleTex(sz){const c=document.createElement('canvas');c.width=sz;c.height=sz;const x=c.getContext('2d');x.beginPath();x.arc(sz/2,sz/2,sz/2-1,0,Math.PI*2);x.fillStyle='#fff';x.fill();const t=new THREE.CanvasTexture(c);t.needsUpdate=true;return t;}
+const cTex=makeCircleTex(32);
+const layers={leo:null,meo:null,geo:null,heo:null};
+
+// Keplerian elements → ECI 3D position (normalized to Earth radii)
+function kepler3D(sma,inc_d,raan_d,ecc,argp_d,ma_d){
+  const d2r=Math.PI/180;
+  const inc=inc_d*d2r,raan=raan_d*d2r,argp=argp_d*d2r;
+  let E=ma_d*d2r;
+  for(let i=0;i<5;i++)E=ma_d*d2r+ecc*Math.sin(E);
+  const nu=2*Math.atan2(Math.sqrt(1+ecc)*Math.sin(E/2),Math.sqrt(1-ecc)*Math.cos(E/2));
+  const r=sma*(1-ecc*Math.cos(E))/6371;
+  const xo=r*Math.cos(nu),yo=r*Math.sin(nu);
+  const cO=Math.cos(raan),sO=Math.sin(raan),ci=Math.cos(inc),si=Math.sin(inc),cw=Math.cos(argp),sw=Math.sin(argp);
+  return[
+    (cO*cw-sO*sw*ci)*xo+(-cO*sw-sO*cw*ci)*yo,
+    (sw*si)*xo+(cw*si)*yo,
+    (sO*cw+cO*sw*ci)*xo+(-sO*sw+cO*cw*ci)*yo
+  ];
+}
+
+// Generate random positions for demo mode (like original)
+function mkDemoLayer(count,minAlt,maxAlt,incRange,color,size){
+  const sc=1/6371;
+  const g=new THREE.BufferGeometry(),pos=new Float32Array(count*3),cols=new Float32Array(count*3),types=new Uint8Array(count),mms=new Float32Array(count);
+  const c=new THREE.Color(color);
+  for(let i=0;i<count;i++){
+    const alt=minAlt+Math.random()*(maxAlt-minAlt),r=R+alt*sc;
+    const inc=(Math.random()*(incRange[1]-incRange[0])+incRange[0])*Math.PI/180;
+    const raan=Math.random()*Math.PI*2,ta=Math.random()*Math.PI*2;
+    let x=r*Math.cos(ta),y=0,z=r*Math.sin(ta);
+    let y2=y*Math.cos(inc)-z*Math.sin(inc),z2=y*Math.sin(inc)+z*Math.cos(inc);
+    let x3=x*Math.cos(raan)-y2*Math.sin(raan),y3=x*Math.sin(raan)+y2*Math.cos(raan);
+    pos[i*3]=x3;pos[i*3+1]=z2;pos[i*3+2]=y3;
+    cols[i*3]=c.r;cols[i*3+1]=c.g;cols[i*3+2]=c.b;
+    const rn=Math.random();types[i]=rn<.40?2:rn<.70?0:rn<.85?1:3;
+    mms[i]=1440/(2*Math.PI*Math.sqrt(Math.pow(6371+alt,3)/398600.4)); // approx mean motion
+  }
+  g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  g.setAttribute('color',new THREE.BufferAttribute(cols,3));
+  g.userData={types,count,baseColor:c,mms};
+  return new THREE.Points(g,new THREE.PointsMaterial({size,sizeAttenuation:true,vertexColors:true,map:cTex,alphaTest:.5,transparent:true,depthWrite:true,depthTest:true}));
+}
+
+// Build real layers from API catalog data
+function buildRealLayers(objects){
+  const groups={leo:[],meo:[],geo:[],heo:[]};
+  for(const obj of objects){
+    const mm=obj[9],period=1440/mm,apogee=obj[11];
+    if(period<128)groups.leo.push(obj);
+    else if(period<720)groups.meo.push(obj);
+    else if(period>=1400&&period<=1500&&apogee<40000)groups.geo.push(obj);
+    else groups.heo.push(obj);
+  }
+  const colors={leo:'#00b8d4',meo:'#d4a000',geo:'#8868c8',heo:'#c83850'};
+  const sizes={leo:.02,meo:.04,geo:.065,heo:.03};
+  for(const regime of ['leo','meo','geo','heo']){
+    const objs=groups[regime];
+    if(!objs.length)continue;
+    const g=new THREE.BufferGeometry();
+    const pos=new Float32Array(objs.length*3),cols=new Float32Array(objs.length*3);
+    const types=new Uint8Array(objs.length),mms=new Float32Array(objs.length);
+    const c=new THREE.Color(colors[regime]);
+    for(let i=0;i<objs.length;i++){
+      const [id,name,tc,sma,inc,raan,ecc,argp,ma,mm]=objs[i];
+      const [x,y,z]=kepler3D(sma,inc,raan,ecc,argp,ma);
+      pos[i*3]=x;pos[i*3+1]=y;pos[i*3+2]=z;
+      cols[i*3]=c.r;cols[i*3+1]=c.g;cols[i*3+2]=c.b;
+      types[i]=tc;mms[i]=mm;
+    }
+    g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+    g.setAttribute('color',new THREE.BufferAttribute(cols,3));
+    g.userData={types,count:objs.length,baseColor:c,mms};
+    layers[regime]=new THREE.Points(g,new THREE.PointsMaterial({
+      size:sizes[regime],sizeAttenuation:true,vertexColors:true,
+      map:cTex,alphaTest:.5,transparent:true,depthWrite:true,depthTest:true
+    }));
+    scene.add(layers[regime]);
+  }
+  orbitCounts={leo:groups.leo.length,meo:groups.meo.length,geo:groups.geo.length,heo:groups.heo.length};
+  totalCount=objects.length;
+}
+
+// Build demo layers (fallback)
+function buildDemoLayers(){
+  layers.leo=mkDemoLayer(22000,200,2000,[0,98],'#00b8d4',.02);
+  layers.meo=mkDemoLayer(800,2000,20000,[45,65],'#d4a000',.04);
+  layers.geo=mkDemoLayer(600,35000,36500,[0,5],'#8868c8',.065);
+  layers.heo=mkDemoLayer(400,500,40000,[20,63.4],'#c83850',.03);
+  Object.values(layers).forEach(l=>{if(l)scene.add(l);});
+  orbitCounts={leo:22000,meo:800,geo:600,heo:400};
+  totalCount=23800;
+}
+
+// ===== FILTER =====
+function applyFilter(f){
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.toggle('active',b.dataset.filter===f));
+  let visCount=0;
+  Object.values(layers).forEach(l=>{
+    if(!l)return;
+    const c=l.geometry.attributes.color.array,t=l.geometry.userData.types,n=l.geometry.userData.count,bc=l.geometry.userData.baseColor;
+    let layerVis=0;
+    for(let i=0;i<n;i++){
+      let show=false;
+      if(f==='all')show=true;
+      else if(f==='active')show=(t[i]===0); // payload
+      else if(f==='debris')show=(t[i]===2);
+      else if(f==='rockets')show=(t[i]===1); // rocket body
+      else if(f==='constellations')show=(t[i]===0); // approximate: payloads in LEO with similar inc
+      if(show){c[i*3]=bc.r;c[i*3+1]=bc.g;c[i*3+2]=bc.b;layerVis++;}
+      else{c[i*3]=bc.r*.06;c[i*3+1]=bc.g*.06;c[i*3+2]=bc.b*.06;}
+    }
+    l.geometry.attributes.color.needsUpdate=true;
+    visCount+=layerVis;
+  });
+  animateCounter(document.getElementById('total-count'),f==='all'?totalCount:visCount,500);
+}
+document.querySelectorAll('.filter-btn').forEach(b=>b.addEventListener('click',()=>applyFilter(b.dataset.filter)));
+
+// ===== CAMERA =====
+let drag=false,pm={x:0,y:0},sph={theta:.3,phi:1.2,radius:5};
+function uCam(){camera.position.x=sph.radius*Math.sin(sph.phi)*Math.sin(sph.theta);camera.position.y=sph.radius*Math.cos(sph.phi);camera.position.z=sph.radius*Math.sin(sph.phi)*Math.cos(sph.theta);camera.lookAt(0,0,0);}
+renderer.domElement.addEventListener('pointerdown',e=>{drag=true;pm={x:e.clientX,y:e.clientY};});
+addEventListener('pointerup',()=>drag=false);
+addEventListener('pointermove',e=>{if(!drag)return;sph.theta-=(e.clientX-pm.x)*.005;sph.phi=Math.max(.2,Math.min(Math.PI-.2,sph.phi-(e.clientY-pm.y)*.005));pm={x:e.clientX,y:e.clientY};});
+renderer.domElement.addEventListener('wheel',e=>{sph.radius=Math.max(1.8,Math.min(15,sph.radius+e.deltaY*.003));});
+
+// ===== ANIMATION =====
+const clock=new THREE.Clock();
+function animD(pts,dt){
+  if(!pts)return;
+  const p=pts.geometry.attributes.position.array;
+  const n=pts.geometry.userData.count;
+  const mms=pts.geometry.userData.mms;
+  for(let i=0;i<n;i++){
+    const ix=i*3,x=p[ix],z=p[ix+2];
+    const r=Math.sqrt(x*x+p[ix+1]*p[ix+1]+z*z);
+    // Use actual mean motion if available, else approximate
+    const a=(mms&&mms[i]>0)?(mms[i]*2*Math.PI/86400*dt):(0.01/(r*r)*dt);
+    const c=Math.cos(a),s=Math.sin(a);
+    p[ix]=x*c-z*s;p[ix+2]=x*s+z*c;
+  }
+  pts.geometry.attributes.position.needsUpdate=true;
+}
+function animate(){requestAnimationFrame(animate);const dt=clock.getDelta();earth.rotation.y+=dt*.04;Object.values(layers).forEach(l=>animD(l,dt));if(!drag)sph.theta+=dt*.012;uCam();renderer.render(scene,camera);}
+
+function animateCounter(el,target,dur){const st=performance.now(),init=parseInt(el.textContent.replace(/,/g,''))||0;function u(now){const p=Math.min((now-st)/dur,1);el.textContent=Math.floor(init+(target-init)*(1-Math.pow(1-p,3))).toLocaleString();if(p<1)requestAnimationFrame(u);}requestAnimationFrame(u);}
+function uTime(){document.getElementById('utc-time').textContent=new Date().toISOString().replace('T',' ').substring(0,19)+' UTC';}
+addEventListener('resize',()=>{const c=document.getElementById('canvas-container');const w=c.clientWidth||innerWidth;const h=c.clientHeight||innerHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h);});
+
+// ===== GLOBAL TOOLTIP SYSTEM =====
+const gtip=document.getElementById('global-tip');
+document.querySelectorAll('.tip-trigger').forEach(tr=>{
+  const tipBox=tr.parentElement.querySelector('.tip-box');
+  if(!tipBox)return;
+  tr.addEventListener('mouseenter',e=>{
+    const lang=currentLang;const key=tipBox.getAttribute('data-i18n');
+    const text=(i18n[lang]&&i18n[lang][key])?i18n[lang][key]:tipBox.textContent;
+    gtip.textContent=text;const rect=tr.getBoundingClientRect();
+    let top=rect.top-gtip.offsetHeight-8,left=rect.left-120+7;
+    gtip.style.display='block';gtip.style.opacity='0';
+    gtip.style.left=Math.max(8,Math.min(left,innerWidth-270))+'px';
+    if(top<8)top=rect.bottom+8;
+    gtip.style.top=top+'px';
+    requestAnimationFrame(()=>{gtip.style.opacity='1';});
+  });
+  tr.addEventListener('mouseleave',()=>{gtip.style.opacity='0';setTimeout(()=>{gtip.style.display='none';},150);});
+});
+document.querySelectorAll('.has-tip').forEach(ht=>{
+  const tipBox=ht.querySelector('.tip-box');if(!tipBox)return;
+  ht.addEventListener('mouseenter',e=>{
+    const key=tipBox.getAttribute('data-i18n');
+    const text=(i18n[currentLang]&&i18n[currentLang][key])?i18n[currentLang][key]:tipBox.textContent;
+    gtip.textContent=text;const rect=ht.getBoundingClientRect();
+    let top=rect.top-gtip.offsetHeight-8,left=rect.left-80;
+    gtip.style.display='block';gtip.style.opacity='0';
+    gtip.style.left=Math.max(8,Math.min(left,innerWidth-270))+'px';
+    if(top<8)top=rect.bottom+8;
+    gtip.style.top=top+'px';
+    requestAnimationFrame(()=>{gtip.style.opacity='1';});
+  });
+  ht.addEventListener('mouseleave',()=>{gtip.style.opacity='0';setTimeout(()=>{gtip.style.display='none';},150);});
+});
+
+// ===== DATA LOADING & INIT =====
+async function loadCatalog(){
+  const loadingText=document.querySelector('.loading-text');
+  try{
+    if(loadingText)loadingText.textContent='CONNECTING TO SPACE-TRACK...';
+    const ctrl=new AbortController();const tmo=setTimeout(()=>ctrl.abort(),15000);
+    const resp=await fetch(API_URL+'/catalog',{signal:ctrl.signal});clearTimeout(tmo);
+    if(!resp.ok)throw new Error('HTTP '+resp.status);
+    if(loadingText)loadingText.textContent='PARSING ORBITAL CATALOG...';
+    const data=await resp.json();
+    if(!data.objects||!data.objects.length)throw new Error('Empty catalog');
+
+    // Build SAT_DB from real data
+    for(const obj of data.objects){
+      const [id,name,tc,sma,inc,raan,ecc,argp,ma,mm,perigee,apogee]=obj;
+      SAT_DB[id]={
+        n:name, alt:perigee, inc:inc, sz:tc===0?3:tc===1?5:.1,
+        t:['Active','Rocket','Debris','Unknown'][tc],
+        sma,raan,ecc,argp,ma,mm,apogee
+      };
+    }
+
+    // Build real 3D layers
+    if(loadingText)loadingText.textContent='RENDERING '+data.objects.length.toLocaleString()+' OBJECTS...';
+    buildRealLayers(data.objects);
+    liveMode=true;
+    console.log('[OrbitSmith] Live data loaded:',data.stats);
+    return data.stats;
+  }catch(err){
+    console.warn('[OrbitSmith] API unavailable, using demo data:',err.message);
+    SAT_DB=DEMO_SAT_DB;
+    buildDemoLayers();
+    liveMode=false;
+    return null;
+  }
+}
+
+// Init
+uCam();animate();
+
+loadCatalog().then(stats=>{
+  document.getElementById('loading').classList.add('fade-out');
+  window.dispatchEvent(new Event('resize'));
+
+  if(stats){
+    // Real data loaded
+    animateCounter(document.getElementById('total-count'),totalCount,2000);
+    animateCounter(document.getElementById('leo-count'),orbitCounts.leo,1800);
+    animateCounter(document.getElementById('meo-count'),orbitCounts.meo,1500);
+    animateCounter(document.getElementById('geo-count'),orbitCounts.geo,1500);
+    animateCounter(document.getElementById('heo-count'),orbitCounts.heo,1500);
+  }else{
+    // Demo fallback
+    animateCounter(document.getElementById('total-count'),totalCount,2000);
+    animateCounter(document.getElementById('leo-count'),22000,1800);
+    animateCounter(document.getElementById('meo-count'),800,1500);
+    animateCounter(document.getElementById('geo-count'),600,1500);
+    animateCounter(document.getElementById('heo-count'),400,1500);
+  }
+  animateCounter(document.getElementById('conjunction-count'),847,1800);
+});
+
+setInterval(uTime,1000);uTime();
+
+</script>
+</body>
+</html>

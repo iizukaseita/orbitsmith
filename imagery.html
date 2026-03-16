@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OrbitSmith — Satellite Imagery</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=IBM+Plex+Mono:wght@300;400;500&family=Noto+Sans+JP:wght@300;400;500&display=swap');
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#000;color:#d0d4dc;font-family:'IBM Plex Mono','Noto Sans JP',monospace;height:100vh;width:100vw;overflow:hidden;font-size:12px;}
+
+  .nav{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:1000;background:rgba(0,0,0,0.94);border-bottom:1px solid rgba(255,255,255,0.04);}
+  .logo{display:flex;align-items:center;gap:10px;text-decoration:none;}
+  .logo-text{font-family:'Orbitron',sans-serif;font-weight:700;font-size:14px;letter-spacing:3px;color:#fff;}
+  .logo-text span{color:#00e5ff;}
+  .nav-links{display:flex;align-items:center;gap:12px;}
+  .nav-link{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-decoration:none;padding:4px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;transition:all 0.2s;}
+  .nav-link:hover{color:#00e5ff;border-color:rgba(0,229,255,0.3);}
+  .nav-link.active{color:#00e5ff;border-color:rgba(0,229,255,0.25);}
+
+  #map{position:fixed;top:52px;left:0;right:0;bottom:0;z-index:1;}
+
+  .control-panel{position:fixed;top:66px;left:20px;width:300px;z-index:1000;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 80px);overflow-y:auto;scrollbar-width:none;}
+  .control-panel::-webkit-scrollbar{display:none;}
+  .panel-card{background:rgba(6,10,18,0.92);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.05);border-radius:10px;padding:16px 18px;transition:border-color 0.3s;}
+  .panel-card:hover{border-color:rgba(0,229,255,0.1);}
+  .panel-label{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-bottom:8px;}
+  .panel-title{font-family:'Orbitron',sans-serif;font-size:16px;font-weight:700;color:#00e5ff;margin-bottom:4px;}
+  .panel-sub{font-size:10px;color:rgba(255,255,255,0.35);margin-top:4px;}
+
+  .search-wrap{position:relative;}
+  .search-input{width:100%;padding:8px 10px 8px 30px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:5px;color:#d0d4dc;font-family:'IBM Plex Mono',monospace;font-size:11px;outline:none;transition:border-color 0.2s;}
+  .search-input:focus{border-color:rgba(0,229,255,0.25);}
+  .search-icon{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.25);font-size:12px;}
+  .search-results{position:absolute;top:100%;left:0;right:0;background:rgba(10,16,28,0.97);border:1px solid rgba(255,255,255,0.1);border-radius:0 0 5px 5px;max-height:200px;overflow-y:auto;z-index:250;display:none;}
+  .search-results.open{display:block;}
+  .search-result-item{padding:8px 10px;font-size:10px;color:rgba(255,255,255,0.6);cursor:pointer;transition:background 0.15s;border-bottom:1px solid rgba(255,255,255,0.03);}
+  .search-result-item:hover{background:rgba(0,229,255,0.08);color:#00e5ff;}
+  .search-result-item .result-sub{font-size:9px;color:rgba(255,255,255,0.25);margin-top:2px;}
+
+  .layer-grid{display:flex;flex-direction:column;gap:4px;max-height:320px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(0,229,255,0.15) transparent;}
+  .layer-grid::-webkit-scrollbar{width:4px;}
+  .layer-grid::-webkit-scrollbar-thumb{background:rgba(0,229,255,0.15);border-radius:2px;}
+  .layer-btn{display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:5px;color:rgba(255,255,255,0.5);font-family:'IBM Plex Mono',monospace;font-size:10px;cursor:pointer;transition:all 0.2s;text-align:left;}
+  .layer-btn:hover{color:rgba(255,255,255,0.7);border-color:rgba(255,255,255,0.12);}
+  .layer-btn.active{color:#00e5ff;border-color:rgba(0,229,255,0.3);background:rgba(0,229,255,0.06);}
+  .layer-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .layer-info{font-size:8px;color:rgba(255,255,255,0.2);margin-top:1px;}
+
+  .date-control{display:flex;align-items:center;gap:8px;}
+  .date-btn{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:4px;color:rgba(255,255,255,0.5);padding:4px 8px;cursor:pointer;font-size:10px;font-family:'IBM Plex Mono',monospace;transition:all 0.15s;}
+  .date-btn:hover{color:#00e5ff;border-color:rgba(0,229,255,0.2);}
+  .date-input{font-family:'Orbitron',sans-serif;font-size:11px;color:#fff;flex:1;text-align:center;letter-spacing:1px;background:transparent;border:1px solid rgba(255,255,255,0.08);border-radius:4px;padding:4px 6px;cursor:pointer;outline:none;transition:border-color 0.2s;}
+  .date-input:focus{border-color:rgba(0,229,255,0.3);}
+  .date-input::-webkit-calendar-picker-indicator{filter:invert(1);cursor:pointer;}
+
+  .legend-bar{display:flex;height:10px;border-radius:3px;overflow:hidden;margin-top:6px;}
+  .legend-labels{display:flex;justify-content:space-between;font-size:8px;color:rgba(255,255,255,0.35);margin-top:2px;}
+
+  .info-panel{position:fixed;top:66px;right:20px;width:280px;z-index:1000;display:flex;flex-direction:column;gap:10px;}
+  .coords-display{font-family:'Orbitron',sans-serif;font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:1px;}
+  .opacity-row{display:flex;align-items:center;gap:8px;}
+  .opacity-slider{flex:1;-webkit-appearance:none;height:3px;background:rgba(255,255,255,0.1);border-radius:2px;outline:none;}
+  .opacity-slider::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;background:#00e5ff;border-radius:50%;cursor:pointer;}
+  .opacity-label{font-size:9px;color:rgba(255,255,255,0.3);min-width:30px;text-align:right;}
+
+  .lang-switch{display:flex;gap:4px;}
+  .lang-btn{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:3px;color:rgba(255,255,255,0.35);padding:2px 6px;cursor:pointer;font-size:9px;font-family:'IBM Plex Mono',monospace;transition:all 0.15s;}
+  .lang-btn.active{color:#00e5ff;border-color:rgba(0,229,255,0.25);}
+
+  .disclaimer{position:fixed;bottom:8px;left:20px;z-index:1001;font-size:8px;color:rgba(255,255,255,0.25);max-width:500px;line-height:1.4;}
+
+  @media(max-width:900px){.control-panel{width:calc(100% - 24px);left:12px;top:60px;}.info-panel{display:none;}}
+  @media(max-width:600px){.nav{height:44px;padding:0 10px;}.nav-link{font-size:7px;padding:3px 5px;letter-spacing:1px;}.nav-links{gap:6px;}.logo-text{font-size:12px;letter-spacing:2px;}.control-panel{top:52px;}.panel-card{padding:10px 12px;}}
+
+  .leaflet-control-zoom{border:1px solid rgba(255,255,255,0.1)!important;}
+  .leaflet-control-zoom a{background:rgba(6,10,18,0.9)!important;color:#00e5ff!important;border-color:rgba(255,255,255,0.06)!important;}
+  .leaflet-control-attribution{background:rgba(0,0,0,0.7)!important;color:rgba(255,255,255,0.3)!important;font-size:8px!important;}
+  .leaflet-control-attribution a{color:rgba(0,229,255,0.5)!important;}
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <a href="index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 512 512" fill="none"><circle cx="256" cy="256" r="120" stroke="#00e5ff" stroke-width="12" fill="none"/><ellipse cx="256" cy="256" rx="160" ry="56" transform="rotate(-30 256 256)" stroke="rgba(0,229,255,0.6)" stroke-width="14" fill="none"/><circle cx="256" cy="256" r="32" fill="#00e5ff"/></svg>
+    <div class="logo-text">ORBIT<span>SMITH</span></div>
+  </a>
+  <div class="nav-links">
+    <a href="tracker.html" class="nav-link">TRACKER</a>
+    <a href="imagery.html" class="nav-link active">IMAGERY</a>
+    <a href="about.html" class="nav-link">ABOUT</a>
+    <a href="contact.html" class="nav-link">CONTACT</a>
+  </div>
+</div>
+
+<div id="map"></div>
+
+<div class="control-panel">
+  <div class="panel-card">
+    <div class="panel-title" data-i18n="title" style="white-space:nowrap;font-size:14px;">🛰 Satellite Imagery</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+      <div class="panel-sub" data-i18n="subtitle" style="flex:1;margin:0;">21 layers from NASA, ESA & ESRI. Daily updates, fire detection, science products. All free.</div>
+      <div class="lang-switch" style="margin-left:8px;flex-shrink:0;">
+        <button class="lang-btn active" data-lang="en">EN</button>
+        <button class="lang-btn" data-lang="ja">JA</button>
+        <button class="lang-btn" data-lang="zh">ZH</button>
+        <button class="lang-btn" data-lang="es">ES</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel-card">
+    <div class="panel-label" data-i18n="searchLabel">Search Location</div>
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input class="search-input" id="search" data-i18n-ph="searchPH" placeholder="Tokyo, Amazon, Sahara..." autocomplete="off">
+      <div class="search-results" id="search-results"></div>
+    </div>
+  </div>
+
+  <div class="panel-card">
+    <div class="panel-label" data-i18n="layerLabel">Layer</div>
+    <div class="layer-grid" id="layer-grid"></div>
+  </div>
+
+  <div class="panel-card">
+    <div class="panel-label" data-i18n="dateLabel">Date</div>
+    <div class="date-control" id="date-controls">
+      <button class="date-btn" id="date-prev">◀</button>
+      <input type="date" class="date-input" id="date-input">
+      <button class="date-btn" id="date-next">▶</button>
+    </div>
+    <div class="panel-sub" id="date-hint" data-i18n="dateHint">Use ◀ ▶ or click date to jump</div>
+  </div>
+
+  <div class="panel-card" id="legend-card" style="display:none;">
+    <div class="panel-label" data-i18n="legendLabel">Legend</div>
+    <div id="legend-content"></div>
+  </div>
+
+  <div class="panel-card">
+    <div class="panel-label" data-i18n="opacityLabel">Opacity</div>
+    <div class="opacity-row">
+      <input type="range" class="opacity-slider" id="opacity" min="0" max="100" value="100">
+      <span class="opacity-label" id="opacity-val">100%</span>
+    </div>
+  </div>
+</div>
+
+<div class="info-panel">
+  <div class="panel-card">
+    <div class="panel-label" data-i18n="coordsLabel">Coordinates</div>
+    <div class="coords-display" id="coords">35.6762° N, 139.6503° E</div>
+    <div class="panel-sub" data-i18n="coordsHint">Click map to update</div>
+  </div>
+  <div class="panel-card">
+    <div class="panel-label" data-i18n="sourcesLabel">Data Sources</div>
+    <div style="font-size:9px;color:rgba(255,255,255,0.3);line-height:1.8">
+      <span style="color:#00b8d4">●</span> NASA GIBS — MODIS, VIIRS<br>
+      <span style="color:#ff1744">●</span> NASA FIRMS — Active Fire<br>
+      <span style="color:#6ec6ff">●</span> ESA Sentinel-2 (EOX)<br>
+      <span style="color:#b388ff">●</span> ESRI / Maxar Imagery
+    </div>
+    <div class="panel-sub" style="margin-top:8px"><a href="https://worldview.earthdata.nasa.gov" target="_blank" style="color:rgba(0,229,255,0.5);text-decoration:none;">NASA Worldview ↗</a> · <a href="https://s2maps.eu" target="_blank" style="color:rgba(0,229,255,0.5);text-decoration:none;">EOX S2 Maps ↗</a></div>
+  </div>
+</div>
+
+<div class="disclaimer">Imagery: NASA EOSDIS GIBS · Sentinel-2 cloudless by EOX (Copernicus data) · Esri/Maxar World Imagery. Not for operational use. © 2026 OrbitSmith.</div>
+
+<script>
+// ===== i18n =====
+const I18N = {
+  en: { title:'🛰 Satellite Imagery', subtitle:'21 layers from NASA, ESA & ESRI. Daily updates, fire detection, science products. All free.', searchLabel:'Search Location', searchPH:'Tokyo, Amazon, Sahara...', layerLabel:'Layer', dateLabel:'Date', dateHint:'Use ◀ ▶ or click date to jump', legendLabel:'Legend', opacityLabel:'Opacity', coordsLabel:'Coordinates', coordsHint:'Click map to update', sourcesLabel:'Data Sources', hintFire:'🔥 Red/orange dots = detected fire hotspots', hintNDVI:'⚠ Updates every 8 days — try ◀ if blank', hintStatic:'Date not applicable for this layer' },
+  ja: { title:'🛰 衛星画像ビューア', subtitle:'NASA・ESA・ESRIの21レイヤーを統合。毎日更新、火災検知、科学データ。すべて無料。', searchLabel:'場所を検索', searchPH:'東京、アマゾン、サハラ...', layerLabel:'レイヤー', dateLabel:'日付', dateHint:'◀ ▶ または日付クリックで移動', legendLabel:'凡例', opacityLabel:'不透明度', coordsLabel:'座標', coordsHint:'地図クリックで更新', sourcesLabel:'データソース', hintFire:'🔥 赤/オレンジの点 = 火災検知ポイント', hintNDVI:'⚠ 8日ごとに更新 — 空白なら ◀ で戻る', hintStatic:'このレイヤーは日付不要' },
+  zh: { title:'🛰 卫星影像', subtitle:'整合NASA、ESA、ESRI的21个图层。每日更新、火灾检测、科学数据。完全免费。', searchLabel:'搜索位置', searchPH:'东京、亚马逊、撒哈拉...', layerLabel:'图层', dateLabel:'日期', dateHint:'使用 ◀ ▶ 或点击日期跳转', legendLabel:'图例', opacityLabel:'不透明度', coordsLabel:'坐标', coordsHint:'点击地图更新', sourcesLabel:'数据来源', hintFire:'🔥 红色/橙色点 = 检测到的火灾热点', hintNDVI:'⚠ 每8天更新 — 空白请按 ◀', hintStatic:'此图层不适用日期' },
+  es: { title:'🛰 Imágenes Satelitales', subtitle:'21 capas de NASA, ESA y ESRI. Actualizaciones diarias, detección de incendios, datos científicos. Todo gratis.', searchLabel:'Buscar Ubicación', searchPH:'Tokio, Amazonas, Sahara...', layerLabel:'Capa', dateLabel:'Fecha', dateHint:'Usa ◀ ▶ o haz clic en la fecha', legendLabel:'Leyenda', opacityLabel:'Opacidad', coordsLabel:'Coordenadas', coordsHint:'Clic en el mapa para actualizar', sourcesLabel:'Fuentes de Datos', hintFire:'🔥 Puntos rojos/naranjas = focos de incendio', hintNDVI:'⚠ Actualización cada 8 días — prueba ◀ si está vacío', hintStatic:'Fecha no aplicable para esta capa' }
+};
+let curLang = 'en';
+function setLang(lang) {
+  curLang = lang;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+  document.querySelectorAll('[data-i18n]').forEach(el => { const k = el.dataset.i18n; if (I18N[lang][k]) el.textContent = I18N[lang][k]; });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => { const k = el.dataset.i18nPh; if (I18N[lang][k]) el.placeholder = I18N[lang][k]; });
+  if (activeLayer) updateHint(activeLayer);
+}
+document.querySelectorAll('.lang-btn').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang)));
+
+// ===== LEGENDS =====
+const LEGENDS = {
+  'modis-ndvi': { title:'NDVI — Vegetation Index', gradient:'linear-gradient(to right,#d2b48c,#c8b464,#a0b432,#64a018,#2d8c0a,#0a6400,#004400)', labels:['-0.2','0','0.2','0.4','0.6','0.8','1.0'] },
+  'ghrsst-sst': { title:'Sea Surface Temperature', gradient:'linear-gradient(to right,#04006e,#0030c8,#0096ff,#00d2b4,#50e600,#e6e600,#ff8c00,#ff1e00,#a00000)', labels:['-2°C','5°C','10°C','15°C','20°C','25°C','30°C','35°C'] },
+  'modis-snow': { title:'Snow Cover (NDSI)', gradient:'linear-gradient(to right,#50b000,#a0c800,#d8d800,#f0dca0,#f0c0a0,#e08888,#d05068,#e01030)', labels:['1','15','30','45','60','75','90','100'] },
+  'viirs-night': { title:'Nighttime Radiance', gradient:'linear-gradient(to right,#000010,#000830,#102060,#405090,#80a0c0,#c0d0e0,#ffffe0)', labels:['0','','','','','','Max nW'] },
+  'calipso-aerosol': { title:'Aerosol Optical Depth', gradient:'linear-gradient(to right,#00ff00,#80ff00,#ffff00,#ffc800,#ff6400,#ff0000,#c80000,#640064)', labels:['0','0.25','0.5','0.75','1.0','1.5','2.0','3.0'] },
+  'viirs-chlor': { title:'Chlorophyll a (mg/m³)', gradient:'linear-gradient(to right,#000080,#0040a0,#0080c0,#00b898,#40c840,#a0e000,#e0e000,#e09000,#c04000,#800000)', labels:['0.01','0.03','0.1','0.3','1','3','10','30','100'] },
+  'modis-lst-day': { title:'Land Surface Temperature', gradient:'linear-gradient(to right,#0000a0,#0050e0,#00b0ff,#00e0c0,#60e060,#c0e000,#ffff00,#ffa000,#ff4000,#c00000,#600000)', labels:['-25°C','-10°C','0°C','10°C','20°C','30°C','40°C','50°C','65°C'] },
+  'imerg-precip': { title:'Precipitation Rate (mm/hr)', gradient:'linear-gradient(to right,#a0e0ff,#60b0ff,#3080ff,#1050e0,#00b050,#50d000,#c0e000,#ffff00,#ffc000,#ff6000,#ff0000,#c00050)', labels:['0.1','0.5','1','2','4','6','8','10','15','20','30','50'] },
+  'modis-cloud': { title:'Cloud Fraction', gradient:'linear-gradient(to right,#e01020,#c020a0,#6020c0,#2040e0,#20a0e0,#20c060,#80e020,#e0e000,#e0a000,#a07040,#808080,#e01020)', labels:['0%','10%','20%','30%','40%','50%','60%','70%','80%','90%','100%'] },
+  'firms': { title:'Fire Hotspots', gradient:'linear-gradient(to right,#ff9100,#ff5722,#ff1744,#d50000)', labels:['Low conf.','Medium','High conf.'] }
+};
+function showLegend(layer) {
+  const card = document.getElementById('legend-card');
+  const content = document.getElementById('legend-content');
+  const key = layer.id.startsWith('firms') ? 'firms' : layer.id;
+  const leg = LEGENDS[key];
+  if (!leg) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  content.innerHTML = `<div style="font-size:9px;color:rgba(255,255,255,0.5);margin-bottom:4px;">${leg.title}</div>
+    <div class="legend-bar" style="background:${leg.gradient};"></div>
+    <div class="legend-labels">${leg.labels.map(l=>'<span>'+l+'</span>').join('')}</div>`;
+}
+
+// ===== LAYERS =====
+const LAYERS = [
+  { id:'s2-cloudless-2024', group:'ESA Copernicus', name:'Sentinel-2 Cloudless 2024', color:'#6ec6ff', info:'10m · Annual Mosaic · Global', url:'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{y}/{x}.jpg', maxZoom:15, static:true, dateLabel:'2024 Annual Mosaic', attr:'Sentinel-2 cloudless — s2maps.eu by EOX (Copernicus Sentinel data 2024)' },
+  { id:'s2-cloudless-2023', group:'ESA Copernicus', name:'Sentinel-2 Cloudless 2023', color:'#5ab8e6', info:'10m · Annual Mosaic · Global', url:'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/g/{z}/{y}/{x}.jpg', maxZoom:15, static:true, dateLabel:'2023 Annual Mosaic', attr:'Sentinel-2 cloudless — s2maps.eu by EOX (Copernicus Sentinel data 2023)' },
+  { id:'s2-cloudless-2022', group:'ESA Copernicus', name:'Sentinel-2 Cloudless 2022', color:'#4aaad0', info:'10m · Annual Mosaic · Global', url:'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2022_3857/default/g/{z}/{y}/{x}.jpg', maxZoom:15, static:true, dateLabel:'2022 Annual Mosaic', attr:'Sentinel-2 cloudless — s2maps.eu by EOX (Copernicus Sentinel data 2022)' },
+  { id:'esri-world', group:'ESRI / Maxar', name:'World Imagery (Hi-Res)', color:'#b388ff', info:'~0.3–1m · Satellite + Aerial', url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', maxZoom:19, static:true, dateLabel:'Latest Composite', attr:'Esri, Maxar, Earthstar Geographics, GIS Community' },
+  { id:'modis-terra', group:'NASA GIBS', name:'MODIS Terra — True Color', color:'#00b8d4', info:'250m · Daily · Global', url:'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/{date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg', maxZoom:9 },
+  { id:'modis-aqua', group:'NASA GIBS', name:'MODIS Aqua — True Color', color:'#00e5ff', info:'250m · Daily · Global', url:'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Aqua_CorrectedReflectance_TrueColor/default/{date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg', maxZoom:9 },
+  { id:'viirs-snpp', group:'NASA GIBS', name:'VIIRS SNPP — True Color', color:'#d4a000', info:'375m · Daily · Global', url:'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/{date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg', maxZoom:9 },
+  { id:'viirs-noaa20', group:'NASA GIBS', name:'VIIRS NOAA-20 — True Color', color:'#c0ca33', info:'250m · Daily · Global', url:'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_NOAA20_CorrectedReflectance_TrueColor/default/{date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg', maxZoom:9 },
+  { id:'viirs-noaa21', group:'NASA GIBS', name:'VIIRS NOAA-21 — True Color', color:'#9e9d24', info:'250m · Daily · Global (2024–)', url:'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_NOAA21_CorrectedReflectance_TrueColor/default/{date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg', maxZoom:9 },
+  { id:'firms-viirs', group:'NASA FIRMS', name:'Active Fires — Day (VIIRS)', color:'#ff1744', info:'375m · Daily · Red dots = fire', wms:true, wmsLayer:'VIIRS_SNPP_Thermal_Anomalies_375m_Day', maxZoom:14 },
+  { id:'firms-viirs-night', group:'NASA FIRMS', name:'Active Fires — Night (VIIRS)', color:'#ff6e40', info:'375m · Daily · Red dots = fire', wms:true, wmsLayer:'VIIRS_SNPP_Thermal_Anomalies_375m_Night', maxZoom:14 },
+  { id:'firms-modis', group:'NASA FIRMS', name:'Active Fires (MODIS)', color:'#ff9100', info:'1km · Daily · Red dots = fire', wms:true, wmsLayer:'MODIS_Combined_Thermal_Anomalies_All', maxZoom:14 },
+  { id:'modis-ndvi', group:'Science', name:'NDVI — Vegetation Health', color:'#4caf50', info:'250m · Updates every 8 days', url:'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_NDVI_8Day/default/{date}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.png', maxZoom:9 },
+  { id:'viirs-night', group:'Science', name:'Nighttime Lights', color:'#ffab00', info:'Monthly · VIIRS Day/Night Band', url:'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_DayNightBand_At_Sensor_Radiance/default/{date}/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png', maxZoom:8 },
+  { id:'ghrsst-sst', group:'Science', name:'Sea Surface Temperature', color:'#ff5722', info:'1km · Daily · Global Oceans (~2 day lag)', wms:true, wmsLayer:'GHRSST_L4_MUR_Sea_Surface_Temperature', maxZoom:9, lag:2 },
+  { id:'modis-snow', group:'Science', name:'Snow Cover (NDSI)', color:'#e0e0e0', info:'500m · Daily · Global', url:'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_NDSI_Snow_Cover/default/{date}/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png', maxZoom:8 },
+  { id:'calipso-aerosol', group:'Science', name:'Aerosol Optical Depth', color:'#c83850', info:'MODIS Terra · Daily', url:'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_Aerosol_Optical_Depth_3km/default/{date}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png', maxZoom:6 },
+  { id:'viirs-chlor', group:'Science', name:'Chlorophyll a (Ocean)', color:'#26a69a', info:'1km · Daily · VIIRS SNPP (~3 day lag)', wms:true, wmsLayer:'VIIRS_SNPP_L2_Chlorophyll_A', maxZoom:9, lag:3 },
+  { id:'modis-lst-day', group:'Science', name:'Land Surface Temp (Day)', color:'#ef6c00', info:'1km · Daily · MODIS Terra', url:'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_Land_Surface_Temp_Day/default/{date}/GoogleMapsCompatible_Level7/{z}/{y}/{x}.png', maxZoom:7 },
+  { id:'imerg-precip', group:'Science', name:'Precipitation Rate', color:'#1565c0', info:'10km · Half-hourly → Daily · IMERG (~1 day lag)', wms:true, wmsLayer:'IMERG_Precipitation_Rate', maxZoom:6, lag:1 },
+  { id:'modis-cloud', group:'Science', name:'Cloud Fraction (Day)', color:'#78909c', info:'1km · Daily · MODIS Terra', url:'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_Cloud_Fraction_Day/default/{date}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png', maxZoom:6 }
+];
+
+// ===== STATE =====
+let currentDate = new Date(); currentDate.setDate(currentDate.getDate() - 1);
+let activeLayer = LAYERS[0], overlayLayer = null;
+
+// ===== MAP =====
+const map = L.map('map', { center:[20,0], zoom:3, maxZoom:19, minZoom:2 });
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', { attribution:'© OpenStreetMap · © CARTO', maxZoom:19 }).addTo(map);
+const lp = map.createPane('labels'); lp.style.zIndex=650; lp.style.pointerEvents='none';
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', { pane:'labels', maxZoom:19 }).addTo(map);
+
+// ===== OVERLAY =====
+function ds(d){ return d.toISOString().split('T')[0]; }
+
+function setOverlay(layer, date) {
+  if (overlayLayer) map.removeLayer(overlayLayer);
+  const op = parseFloat(document.getElementById('opacity').value) / 100;
+
+  // Clamp zoom to layer limits
+  const lMax = layer.maxZoom || 19;
+  map.setMaxZoom(lMax);
+  if (map.getZoom() > lMax) map.setZoom(lMax);
+
+  // Apply lag for science products with processing delay
+  let effectiveDate = date;
+  if (layer.lag) {
+    effectiveDate = new Date(date);
+    effectiveDate.setDate(effectiveDate.getDate() - layer.lag);
+  }
+
+  if (layer.wms) {
+    const wmsUrl = layer.wmsUrl || 'https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi';
+    overlayLayer = L.tileLayer.wms(wmsUrl, {
+      layers: layer.wmsLayer, format:'image/png', transparent:true,
+      time: ds(effectiveDate), styles:'', version:'1.1.1', opacity:op,
+      crs: L.CRS.EPSG3857, width:512, height:512,
+      attribution: layer.attr || 'NASA EOSDIS GIBS'
+    }).addTo(map);
+  } else if (layer.static) {
+    overlayLayer = L.tileLayer(layer.url, { maxZoom:layer.maxZoom, opacity:op, tileSize:256, attribution:layer.attr||'NASA EOSDIS GIBS' }).addTo(map);
+  } else {
+    overlayLayer = L.tileLayer(layer.url.replace('{date}',ds(effectiveDate)), { maxZoom:layer.maxZoom, opacity:op, bounds:[[-90,-180],[90,180]], tileSize:256, attribution:layer.attr||'NASA EOSDIS GIBS' }).addTo(map);
+  }
+
+  const di = document.getElementById('date-input');
+  const btns = document.querySelectorAll('.date-btn');
+  if (layer.static) {
+    di.value=''; di.disabled=true; di.style.opacity='0.3';
+    btns.forEach(b=>{b.style.opacity='0.3';b.style.pointerEvents='none';});
+  } else {
+    di.value=ds(date); di.disabled=false; di.style.opacity='1';
+    btns.forEach(b=>{b.style.opacity='1';b.style.pointerEvents='auto';});
+  }
+  updateHint(layer);
+  showLegend(layer);
+}
+
+function updateHint(layer) {
+  const h = document.getElementById('date-hint'), t = I18N[curLang];
+  if (layer.static) h.textContent = t.hintStatic + ' (' + (layer.dateLabel||'') + ')';
+  else if (layer.id.startsWith('firms')) h.textContent = t.hintFire;
+  else if (layer.id === 'modis-ndvi') h.textContent = t.hintNDVI;
+  else h.textContent = t.dateHint;
+}
+
+// ===== LAYER BUTTONS =====
+const lg = document.getElementById('layer-grid');
+let lastG = '';
+LAYERS.forEach(layer => {
+  if (layer.group !== lastG) {
+    lastG = layer.group;
+    const hdr = document.createElement('div');
+    hdr.style.cssText='font-size:8px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.2);margin:6px 0 2px 2px;';
+    hdr.textContent = layer.group;
+    lg.appendChild(hdr);
+  }
+  const btn = document.createElement('button');
+  btn.className = 'layer-btn'+(layer.id===activeLayer.id?' active':'');
+  btn.dataset.id = layer.id;
+  btn.innerHTML = `<div class="layer-dot" style="background:${layer.color}"></div><div><div>${layer.name}</div><div class="layer-info">${layer.info}</div></div>`;
+  btn.addEventListener('click', () => {
+    activeLayer = layer;
+    document.querySelectorAll('.layer-btn').forEach(b=>b.classList.toggle('active',b.dataset.id===layer.id));
+    setOverlay(layer, currentDate);
+  });
+  lg.appendChild(btn);
+});
+
+// ===== DATE =====
+document.getElementById('date-prev').addEventListener('click', () => { currentDate.setDate(currentDate.getDate()-1); setOverlay(activeLayer,currentDate); });
+document.getElementById('date-next').addEventListener('click', () => { const t=new Date(); if(currentDate<t){currentDate.setDate(currentDate.getDate()+1);setOverlay(activeLayer,currentDate);} });
+document.getElementById('date-input').addEventListener('change', e => {
+  if(e.target.value){ const p=e.target.value.split('-'); currentDate=new Date(+p[0],+p[1]-1,+p[2]); setOverlay(activeLayer,currentDate); }
+});
+
+// ===== OPACITY =====
+const opS=document.getElementById('opacity'), opV=document.getElementById('opacity-val');
+opS.addEventListener('input',()=>{ opV.textContent=opS.value+'%'; if(overlayLayer)overlayLayer.setOpacity(opS.value/100); });
+
+// ===== COORDS =====
+map.on('click', e => {
+  const la=e.latlng.lat,lo=e.latlng.lng;
+  document.getElementById('coords').textContent=`${Math.abs(la).toFixed(4)}° ${la>=0?'N':'S'}, ${Math.abs(lo).toFixed(4)}° ${lo>=0?'E':'W'}`;
+});
+
+// ===== SEARCH =====
+let sTo=null; const sI=document.getElementById('search'), sR=document.getElementById('search-results');
+sI.addEventListener('input',()=>{
+  clearTimeout(sTo); const q=sI.value.trim();
+  if(q.length<2){sR.classList.remove('open');return;}
+  sTo=setTimeout(async()=>{
+    try{
+      const r=await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(q)}`,{headers:{'Accept-Language':curLang}});
+      const d=await r.json(); if(!d.length){sR.classList.remove('open');return;}
+      sR.innerHTML=d.map(r=>`<div class="search-result-item" data-lat="${r.lat}" data-lon="${r.lon}">${r.display_name.split(',').slice(0,2).join(',')}<div class="result-sub">${r.lat}, ${r.lon}</div></div>`).join('');
+      sR.classList.add('open');
+      sR.querySelectorAll('.search-result-item').forEach(it=>{
+        it.addEventListener('click',()=>{
+          const la=+it.dataset.lat,lo=+it.dataset.lon;
+          map.setView([la,lo],8); sI.value=it.textContent.trim().split('\n')[0]; sR.classList.remove('open');
+          document.getElementById('coords').textContent=`${Math.abs(la).toFixed(4)}° ${la>=0?'N':'S'}, ${Math.abs(lo).toFixed(4)}° ${lo>=0?'E':'W'}`;
+        });
+      });
+    }catch(e){console.warn('Search error:',e);}
+  },300);
+});
+document.addEventListener('click',e=>{if(!sI.contains(e.target)&&!sR.contains(e.target))sR.classList.remove('open');});
+
+// ===== INIT =====
+document.getElementById('date-input').value = ds(currentDate);
+setOverlay(activeLayer, currentDate);
+const bl=(navigator.language||'').slice(0,2); if(['ja','zh','es'].includes(bl)) setLang(bl);
+</script>
+</body>
+</html>

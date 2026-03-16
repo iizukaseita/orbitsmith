@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>OrbitSmith — Open Space Toolkit</title>
+<meta name="description" content="Free space situational awareness tools. 30,000+ tracked objects, multi-source satellite imagery, collision analysis.">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=IBM+Plex+Mono:wght@300;400;500&family=Noto+Sans+JP:wght@300;400;500&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#000;color:#d0d4dc;font-family:'IBM Plex Mono','Noto Sans JP',monospace;min-height:100vh;overflow-x:hidden;}
+
+  canvas#stars{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;}
+
+  .nav{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:1000;background:rgba(0,0,0,0.85);border-bottom:1px solid rgba(255,255,255,0.04);backdrop-filter:blur(16px);}
+  .logo{display:flex;align-items:center;gap:10px;text-decoration:none;}
+  .logo-text{font-family:'Orbitron',sans-serif;font-weight:700;font-size:14px;letter-spacing:3px;color:#fff;}
+  .logo-text span{color:#00e5ff;}
+  .nav-links{display:flex;align-items:center;gap:12px;}
+  .nav-link{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-decoration:none;padding:4px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;transition:all 0.2s;}
+  .nav-link:hover{color:#00e5ff;border-color:rgba(0,229,255,0.3);}
+
+  .hero{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:80px 24px 40px;}
+
+  .hero-orbit{position:relative;width:160px;height:160px;margin-bottom:40px;}
+  .hero-orbit .ring{position:absolute;border-radius:50%;border:1px solid rgba(0,229,255,0.08);}
+  .ring-1{width:160px;height:160px;top:0;left:0;animation:spin 20s linear infinite;}
+  .ring-2{width:120px;height:120px;top:20px;left:20px;border-color:rgba(0,229,255,0.15)!important;animation:spin 14s linear infinite reverse;}
+  .ring-3{width:80px;height:80px;top:40px;left:40px;border-color:rgba(0,229,255,0.25)!important;animation:spin 8s linear infinite;}
+  .ring-dot{position:absolute;width:6px;height:6px;background:#00e5ff;border-radius:50%;box-shadow:0 0 8px rgba(0,229,255,0.6);}
+  .ring-1 .ring-dot{top:-3px;left:50%;transform:translateX(-50%);}
+  .ring-2 .ring-dot{top:50%;right:-3px;transform:translateY(-50%);}
+  .ring-3 .ring-dot{bottom:-3px;left:50%;transform:translateX(-50%);}
+  .hero-core{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:24px;height:24px;background:radial-gradient(circle,#00e5ff 0%,rgba(0,229,255,0.3) 60%,transparent 100%);border-radius:50%;box-shadow:0 0 30px rgba(0,229,255,0.2);}
+  @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+
+  .hero-title{font-family:'Orbitron',sans-serif;font-size:clamp(32px,5.5vw,56px);font-weight:900;letter-spacing:8px;color:#fff;margin-bottom:12px;line-height:1.1;}
+  .hero-title span{background:linear-gradient(135deg,#00e5ff,#40c4ff,#00e5ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+  .hero-sub{font-size:clamp(11px,1.5vw,14px);color:rgba(255,255,255,0.35);max-width:480px;line-height:1.8;margin-bottom:20px;letter-spacing:0.5px;}
+  .hero-line{width:40px;height:1px;background:linear-gradient(90deg,transparent,rgba(0,229,255,0.4),transparent);margin:0 auto 32px;}
+
+  .lang-row{display:flex;justify-content:center;gap:6px;margin-bottom:56px;}
+  .lang-btn{background:transparent;border:1px solid rgba(255,255,255,0.06);border-radius:3px;color:rgba(255,255,255,0.25);padding:3px 8px;cursor:pointer;font-size:9px;font-family:'IBM Plex Mono',monospace;transition:all 0.2s;letter-spacing:1px;}
+  .lang-btn:hover{color:rgba(255,255,255,0.5);border-color:rgba(255,255,255,0.15);}
+  .lang-btn.active{color:#00e5ff;border-color:rgba(0,229,255,0.2);background:rgba(0,229,255,0.04);}
+
+  .tools-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;width:100%;max-width:760px;margin-bottom:72px;}
+
+  .tool-card{position:relative;background:rgba(4,8,16,0.7);border:1px solid rgba(255,255,255,0.04);border-radius:14px;padding:36px 30px 30px;text-decoration:none;color:inherit;transition:all 0.4s cubic-bezier(0.2,0.8,0.2,1);overflow:hidden;}
+  .tool-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 30% 0%,var(--glow) 0%,transparent 70%);opacity:0;transition:opacity 0.4s;}
+  .tool-card:hover{border-color:rgba(0,229,255,0.15);transform:translateY(-6px);}
+  .tool-card:hover::before{opacity:1;}
+  .tool-card::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--line,rgba(0,229,255,0.2)),transparent);opacity:0;transition:opacity 0.4s;}
+  .tool-card:hover::after{opacity:1;}
+
+  .tool-icon{width:40px;height:40px;margin-bottom:20px;position:relative;z-index:1;}
+  .tool-tag{position:absolute;top:16px;right:16px;font-size:8px;letter-spacing:2px;text-transform:uppercase;padding:3px 8px;border-radius:3px;font-family:'IBM Plex Mono',monospace;z-index:1;}
+  .tag-live{color:rgba(0,229,255,0.7);background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.12);}
+  .tool-name{font-family:'Orbitron',sans-serif;font-size:15px;font-weight:700;color:rgba(255,255,255,0.9);margin-bottom:10px;letter-spacing:2px;position:relative;z-index:1;}
+  .tool-desc{font-size:11px;color:rgba(255,255,255,0.3);line-height:1.7;margin-bottom:20px;position:relative;z-index:1;}
+  .tool-tags{display:flex;gap:8px;flex-wrap:wrap;position:relative;z-index:1;}
+  .tool-tags span{font-size:9px;color:rgba(255,255,255,0.25);padding:2px 8px;border:1px solid rgba(255,255,255,0.06);border-radius:3px;letter-spacing:0.5px;}
+  .tool-arrow{position:absolute;bottom:28px;right:28px;color:rgba(0,229,255,0.3);font-size:14px;transition:all 0.3s;z-index:1;}
+  .tool-card:hover .tool-arrow{color:#00e5ff;transform:translateX(4px);}
+
+  .coming-soon{text-align:center;margin-bottom:80px;max-width:400px;}
+  .coming-soon-line{width:60px;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent);margin:0 auto 16px;}
+  .coming-soon-text{font-size:10px;color:rgba(255,255,255,0.15);letter-spacing:3px;text-transform:uppercase;}
+
+  .stats-bar{display:flex;justify-content:center;gap:56px;margin-bottom:80px;flex-wrap:wrap;}
+  .stat-item{text-align:center;}
+  .stat-num{font-family:'Orbitron',sans-serif;font-size:22px;font-weight:700;letter-spacing:2px;background:linear-gradient(135deg,#00e5ff,#40c4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+  .stat-label{font-size:8px;color:rgba(255,255,255,0.2);letter-spacing:2px;text-transform:uppercase;margin-top:6px;}
+
+  .footer{position:relative;z-index:1;padding:40px 24px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;}
+  .footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:16px;flex-wrap:wrap;}
+  .footer-links a{font-size:10px;color:rgba(255,255,255,0.2);text-decoration:none;letter-spacing:1px;transition:color 0.2s;}
+  .footer-links a:hover{color:rgba(0,229,255,0.6);}
+  .footer-copy{font-size:8px;color:rgba(255,255,255,0.1);letter-spacing:0.5px;}
+
+  @media(max-width:600px){
+    .nav{height:44px;padding:0 10px;}
+    .nav-link{font-size:7px;padding:3px 5px;letter-spacing:1px;}
+    .nav-links{gap:6px;}
+    .logo-text{font-size:12px;letter-spacing:2px;}
+    .tools-grid{grid-template-columns:1fr;gap:16px;padding:0 4px;}
+    .stats-bar{gap:28px;}
+    .tool-card{padding:28px 22px 24px;}
+    .hero-orbit{width:120px;height:120px;margin-bottom:32px;}
+    .ring-1{width:120px;height:120px;}
+    .ring-2{width:88px;height:88px;top:16px;left:16px;}
+    .ring-3{width:56px;height:56px;top:32px;left:32px;}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+
+<div class="nav">
+  <a href="index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 512 512" fill="none"><circle cx="256" cy="256" r="120" stroke="#00e5ff" stroke-width="12" fill="none"/><ellipse cx="256" cy="256" rx="160" ry="56" transform="rotate(-30 256 256)" stroke="rgba(0,229,255,0.6)" stroke-width="14" fill="none"/><circle cx="256" cy="256" r="32" fill="#00e5ff"/></svg>
+    <div class="logo-text">ORBIT<span>SMITH</span></div>
+  </a>
+  <div class="nav-links">
+    <a href="tracker.html" class="nav-link">TRACKER</a>
+    <a href="imagery.html" class="nav-link">IMAGERY</a>
+    <a href="about.html" class="nav-link">ABOUT</a>
+    <a href="contact.html" class="nav-link">CONTACT</a>
+  </div>
+</div>
+
+<section class="hero">
+  <div class="hero-orbit">
+    <div class="ring ring-1"><div class="ring-dot"></div></div>
+    <div class="ring ring-2"><div class="ring-dot"></div></div>
+    <div class="ring ring-3"><div class="ring-dot"></div></div>
+    <div class="hero-core"></div>
+  </div>
+
+  <h1 class="hero-title">ORBIT<span>SMITH</span></h1>
+  <p class="hero-sub" data-i18n="heroSub">Free, open-source space toolkit. Track orbital objects, browse satellite imagery, and analyze space data — all in your browser.</p>
+  <div class="hero-line"></div>
+
+  <div class="lang-row">
+    <button class="lang-btn active" data-lang="en">EN</button>
+    <button class="lang-btn" data-lang="ja">JA</button>
+    <button class="lang-btn" data-lang="zh">ZH</button>
+    <button class="lang-btn" data-lang="es">ES</button>
+  </div>
+
+  <div class="tools-grid">
+    <!-- TRACKER -->
+    <a href="tracker.html" class="tool-card" style="--glow:rgba(0,229,255,0.03);--line:rgba(0,229,255,0.2);">
+      <div class="tool-tag tag-live">LIVE</div>
+      <svg class="tool-icon" viewBox="0 0 40 40" fill="none">
+        <circle cx="20" cy="20" r="15" stroke="rgba(0,229,255,0.4)" stroke-width="1.5" fill="none"/>
+        <ellipse cx="20" cy="20" rx="19" ry="7" transform="rotate(-25 20 20)" stroke="#00e5ff" stroke-width="1.5" fill="none"/>
+        <circle cx="20" cy="20" r="4" fill="rgba(0,229,255,0.15)" stroke="#00e5ff" stroke-width="1"/>
+        <circle cx="20" cy="20" r="1.5" fill="#00e5ff"/>
+        <circle cx="32" cy="14" r="2" fill="#00e5ff" opacity="0.7"/>
+      </svg>
+      <div class="tool-name" data-i18n="trackerName">3D Orbital Tracker</div>
+      <div class="tool-desc" data-i18n="trackerDesc">Real-time 3D visualization of 30,000+ objects in orbit. Satellites, rocket bodies, debris — tracked with Space-Track catalog data. Full collision probability calculator included.</div>
+      <div class="tool-tags">
+        <span>30,000+ objects</span>
+        <span>Collision calc</span>
+        <span>Space-Track</span>
+      </div>
+      <div class="tool-arrow">→</div>
+    </a>
+
+    <!-- IMAGERY -->
+    <a href="imagery.html" class="tool-card" style="--glow:rgba(100,180,255,0.03);--line:rgba(100,180,255,0.2);">
+      <div class="tool-tag tag-live">LIVE</div>
+      <svg class="tool-icon" viewBox="0 0 40 40" fill="none">
+        <rect x="4" y="8" width="32" height="24" rx="3" stroke="rgba(100,180,255,0.4)" stroke-width="1.5" fill="none"/>
+        <path d="M4 24 L14 16 L22 22 L28 18 L36 24" stroke="#4fc3f7" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+        <circle cx="28" cy="14" r="3" fill="rgba(100,180,255,0.15)" stroke="#4fc3f7" stroke-width="1"/>
+        <line x1="20" y1="4" x2="20" y2="8" stroke="rgba(100,180,255,0.3)" stroke-width="1"/>
+        <line x1="16" y1="5" x2="18" y2="8" stroke="rgba(100,180,255,0.2)" stroke-width="1"/>
+        <line x1="24" y1="5" x2="22" y2="8" stroke="rgba(100,180,255,0.2)" stroke-width="1"/>
+      </svg>
+      <div class="tool-name" data-i18n="imageryName">Satellite Imagery</div>
+      <div class="tool-desc" data-i18n="imageryDesc">Unified viewer for 15+ layers from NASA, ESA, and ESRI. Daily Earth observation, active fire detection, vegetation health, sea temperature, nighttime lights — one interface.</div>
+      <div class="tool-tags">
+        <span>NASA GIBS</span>
+        <span>ESA Sentinel</span>
+        <span>ESRI/Maxar</span>
+      </div>
+      <div class="tool-arrow">→</div>
+    </a>
+  </div>
+
+  <div class="coming-soon">
+    <div class="coming-soon-line"></div>
+    <div class="coming-soon-text" data-i18n="comingSoon">More tools in development</div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-item"><div class="stat-num">30K+</div><div class="stat-label" data-i18n="s1">Tracked Objects</div></div>
+    <div class="stat-item"><div class="stat-num">15+</div><div class="stat-label" data-i18n="s2">Imagery Layers</div></div>
+    <div class="stat-item"><div class="stat-num">4</div><div class="stat-label" data-i18n="s3">Data Sources</div></div>
+    <div class="stat-item"><div class="stat-num">$0</div><div class="stat-label" data-i18n="s4">Always Free</div></div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer-links">
+    <a href="tracker.html">Tracker</a>
+    <a href="imagery.html">Imagery</a>
+    <a href="about.html">About</a>
+    <a href="contact.html">Contact</a>
+    <a href="https://github.com/orbitsmith" target="_blank">GitHub</a>
+    <a href="https://x.com/iizukaseita" target="_blank">X</a>
+  </div>
+  <div class="footer-copy">© 2026 OrbitSmith · NASA · ESA Copernicus · Space-Track.org · ESRI</div>
+</footer>
+
+<script>
+// ===== STARFIELD =====
+const cv=document.getElementById('stars'),cx=cv.getContext('2d');
+let W,H,pts=[];
+function initStars(){W=cv.width=window.innerWidth;H=cv.height=window.innerHeight;pts=[];for(let i=0;i<200;i++)pts.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.2+0.2,a:Math.random()*0.5+0.1,s:Math.random()*0.0005+0.0002,d:Math.random()>0.5?1:-1,p:Math.random()*Math.PI*2});}
+function drawStars(){cx.clearRect(0,0,W,H);const t=Date.now();for(const p of pts){p.p+=p.s*p.d;const a=p.a*(0.5+0.5*Math.sin(t*p.s*2+p.p));cx.beginPath();cx.arc(p.x,p.y,p.r,0,Math.PI*2);cx.fillStyle=`rgba(180,200,220,${a})`;cx.fill();}requestAnimationFrame(drawStars);}
+initStars();drawStars();window.addEventListener('resize',initStars);
+
+// ===== i18n =====
+const I={
+  en:{heroSub:'Free, open-source space toolkit. Track orbital objects, browse satellite imagery, and analyze space data — all in your browser.',trackerName:'3D Orbital Tracker',trackerDesc:'Real-time 3D visualization of 30,000+ objects in orbit. Satellites, rocket bodies, debris — tracked with Space-Track catalog data. Full collision probability calculator included.',imageryName:'Satellite Imagery',imageryDesc:'Unified viewer for 15+ layers from NASA, ESA, and ESRI. Daily Earth observation, active fire detection, vegetation health, sea temperature, nighttime lights — one interface.',comingSoon:'More tools in development',s1:'Tracked Objects',s2:'Imagery Layers',s3:'Data Sources',s4:'Always Free'},
+  ja:{heroSub:'無料・オープンソースの宇宙ツールキット。軌道物体の追跡、衛星画像の閲覧、宇宙データ分析 — すべてブラウザで完結。',trackerName:'3D軌道トラッカー',trackerDesc:'30,000以上の軌道物体をリアルタイム3D表示。衛星、ロケットボディ、デブリをSpace-Trackカタログで追跡。衝突確率計算機能付き。',imageryName:'衛星画像ビューア',imageryDesc:'NASA・ESA・ESRIの衛星画像を統合表示。毎日の地球観測、火災検知、植生、海面温度、夜間光 — 15以上のレイヤーを1画面で。',comingSoon:'さらなるツールを開発中',s1:'追跡物体数',s2:'画像レイヤー',s3:'データソース',s4:'完全無料'},
+  zh:{heroSub:'免费开源太空工具包。追踪轨道物体、浏览卫星影像、分析太空数据 — 全在浏览器中。',trackerName:'3D轨道追踪器',trackerDesc:'实时3D显示30,000+轨道物体。卫星、火箭体、碎片 — 使用Space-Track目录数据追踪。内含碰撞概率计算器。',imageryName:'卫星影像浏览器',imageryDesc:'整合NASA、ESA、ESRI的15+图层。每日地球观测、火灾检测、植被、海面温度、夜间灯光 — 统一界面。',comingSoon:'更多工具开发中',s1:'追踪物体',s2:'影像图层',s3:'数据来源',s4:'永久免费'},
+  es:{heroSub:'Kit de herramientas espaciales gratuito y de código abierto. Rastrea objetos orbitales, explora imágenes satelitales y analiza datos — todo en tu navegador.',trackerName:'Rastreador Orbital 3D',trackerDesc:'Visualización 3D en tiempo real de más de 30,000 objetos en órbita. Satélites, cohetes y escombros rastreados con datos de Space-Track. Calculadora de colisiones incluida.',imageryName:'Imágenes Satelitales',imageryDesc:'Visor unificado de 15+ capas de NASA, ESA y ESRI. Observación terrestre diaria, detección de incendios, vegetación, temperatura del mar, luces nocturnas — una interfaz.',comingSoon:'Más herramientas en desarrollo',s1:'Objetos Rastreados',s2:'Capas de Imagen',s3:'Fuentes de Datos',s4:'Siempre Gratis'}
+};
+let cl='en';
+function setL(l){cl=l;document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===l));document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.dataset.i18n;if(I[l]&&I[l][k])el.textContent=I[l][k];});}
+document.querySelectorAll('.lang-btn').forEach(b=>b.addEventListener('click',()=>setL(b.dataset.lang)));
+const bl=(navigator.language||'').slice(0,2);if(['ja','zh','es'].includes(bl))setL(bl);
+</script>
+</body>
+</html>
