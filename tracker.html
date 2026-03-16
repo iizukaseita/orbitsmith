@@ -130,7 +130,9 @@
     #canvas-container{position:sticky!important;top:52px;width:100%;height:45vh;min-height:250px;z-index:1;pointer-events:none;}
     .side-panel{position:relative;top:auto;left:auto;width:100%;max-height:none;padding:8px 12px;gap:8px;}
     .right-panel{position:relative;top:auto;right:auto;width:100%;max-height:none;padding:8px 12px;gap:8px;}
-    .top-bar{padding:0 12px;z-index:200;}.top-right{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;}.top-right::-webkit-scrollbar{display:none;}
+    .top-bar{padding:0 12px;z-index:200;}
+    .top-right{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;}
+    .top-right::-webkit-scrollbar{display:none;}
     .logo-text{font-size:12px;letter-spacing:2px;}
     .top-status .time-display{font-size:9px;}
     .bottom-bar{position:relative;flex-wrap:wrap;height:auto;padding:8px 12px;gap:4px;}
@@ -141,7 +143,7 @@
   }
   @media(max-width:600px){
     .top-bar{height:44px;padding:0 10px;}
-    .nav-link{font-size:7px;padding:3px 5px;letter-spacing:1px;}
+    .nav-link{font-size:7px;padding:3px 5px;letter-spacing:1px;white-space:nowrap;flex-shrink:0;}
     .top-right{gap:6px;}
     .lang-current{font-size:8px;padding:3px 5px;}
     .top-status{display:none;}
@@ -223,7 +225,7 @@
       <span class="tip-trigger">?</span>
       <div class="tip-box" data-i18n="tipFrag">A fragmentation event occurs when a space object breaks apart — from collisions, explosions, battery failures, or material degradation — creating multiple new trackable debris pieces.</div>
     </div>
-    <div class="panel-value red" id="frag-count">—</div>
+    <div class="panel-value red" id="frag-count">0</div>
     <div id="frag-container">
       <div class="frag-detail" style="color:rgba(255,255,255,0.25)">Loading...</div>
     </div>
