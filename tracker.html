@@ -17,10 +17,9 @@
   .logo-icon{width:28px;height:28px;}
   .logo-text{font-family:'Orbitron',sans-serif;font-weight:700;font-size:14px;letter-spacing:3px;color:#fff;}
   .logo-text span{color:#00e5ff;}
-  .top-right{display:flex;align-items:center;gap:16px;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;}
-  .top-right::-webkit-scrollbar{display:none;}
+  .top-right{display:flex;align-items:center;gap:16px;}
 
-  .lang-selector{position:relative;flex-shrink:0;}
+  .lang-selector{position:relative;}
   .lang-current{display:flex;align-items:center;gap:5px;padding:4px 10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:5px;font-size:10px;letter-spacing:1px;color:rgba(255,255,255,0.6);cursor:pointer;transition:all 0.2s;}
   .lang-current:hover{border-color:rgba(255,255,255,0.15);}
   .lang-current::after{content:'▾';font-size:8px;margin-left:2px;}
@@ -33,7 +32,7 @@
   .top-status{display:flex;align-items:center;gap:20px;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.45);}
   .status-dot{display:inline-block;width:5px;height:5px;background:#00e5ff;border-radius:50%;margin-right:5px;animation:pulse-dot 2s ease-in-out infinite;}
   @keyframes pulse-dot{0%,100%{opacity:1;}50%{opacity:0.3;}}
-  .time-display{font-family:'IBM Plex Mono',monospace;font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:1px;min-width:175px;text-align:right;}
+  .time-display{font-family:'Orbitron',sans-serif;font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:2px;}
 
   .side-panel{position:fixed;top:66px;left:20px;width:270px;z-index:100;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 120px);overflow-y:auto;scrollbar-width:none;}
   .side-panel::-webkit-scrollbar{display:none;}
@@ -122,7 +121,7 @@
   .loading-ring{width:50px;height:50px;border:2px solid rgba(0,229,255,0.1);border-top-color:#00e5ff;border-radius:50%;animation:spin 1s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
 
-  .nav-link{font-family:'IBM Plex Mono','Noto Sans JP',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-decoration:none;padding:4px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;transition:all 0.2s;flex-shrink:0;white-space:nowrap;}
+  .nav-link{font-family:'IBM Plex Mono','Noto Sans JP',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-decoration:none;padding:4px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;transition:all 0.2s;}
   .nav-link:hover{color:#00e5ff;border-color:rgba(0,229,255,0.3);}
   .nav-link.active{color:#00e5ff;border-color:rgba(0,229,255,0.25);}
 
@@ -224,18 +223,9 @@
       <span class="tip-trigger">?</span>
       <div class="tip-box" data-i18n="tipFrag">A fragmentation event occurs when a space object breaks apart — from collisions, explosions, battery failures, or material degradation — creating multiple new trackable debris pieces.</div>
     </div>
-    <div class="panel-value red">3</div>
-    <div class="frag-item">
-      <div class="frag-event">🔴 2026-02-18 — SL-16 R/B breakup</div>
-      <div class="frag-detail" data-i18n="frag1">Proton upper stage (1993-015B) spontaneous breakup at 850km due to residual propellant. +23 fragments cataloged.</div>
-    </div>
-    <div class="frag-item">
-      <div class="frag-event">🟠 2026-02-09 — CZ-3B R/B debris shed</div>
-      <div class="frag-detail" data-i18n="frag2">Long March 3B upper stage (2019-074B) thermal cycling stress fragmentation at 780km. +15 fragments.</div>
-    </div>
-    <div class="frag-item">
-      <div class="frag-event">🟡 2026-01-28 — Unknown breakup</div>
-      <div class="frag-detail" data-i18n="frag3">Unidentified object near 920km / 99° inc. Possible micrometeorite impact. +9 fragments detected by 18th SDS.</div>
+    <div class="panel-value red" id="frag-count">—</div>
+    <div id="frag-container">
+      <div class="frag-detail" style="color:rgba(255,255,255,0.25)">Loading...</div>
     </div>
   </div>
   <div class="panel-card">
@@ -362,24 +352,30 @@ const DEMO_SAT_DB={
 '25544':{n:'ISS (ZARYA)',alt:420,inc:51.6,sz:109,t:'Station'},'48274':{n:'STARLINK-5271',alt:550,inc:53.0,sz:3.2,t:'Active'},'36411':{n:'COSMOS 2251 DEB',alt:785,inc:74.0,sz:0.15,t:'Debris'},'25730':{n:'FENGYUN 1C DEB',alt:865,inc:99.0,sz:0.10,t:'Debris'},'43013':{n:'TIANGONG (CSS)',alt:390,inc:41.5,sz:67,t:'Station'},'54216':{n:'ONEWEB-0452',alt:1200,inc:87.9,sz:2.0,t:'Active'},'20580':{n:'HST (HUBBLE)',alt:540,inc:28.5,sz:13.2,t:'Active'},'27386':{n:'ENVISAT',alt:770,inc:98.5,sz:26,t:'Inactive'},'37820':{n:'TIANGONG-1 DEB',alt:340,inc:42.8,sz:0.2,t:'Debris'},'39084':{n:'COSMOS 1408 DEB',alt:480,inc:82.6,sz:0.1,t:'Debris'},'25994':{n:'TERRA',alt:705,inc:98.2,sz:6.8,t:'Active'},'27424':{n:'AQUA',alt:705,inc:98.2,sz:6.5,t:'Active'},'33591':{n:'NOAA 19',alt:870,inc:99.2,sz:4.2,t:'Active'},'43226':{n:'STARLINK-24',alt:550,inc:53.0,sz:3.2,t:'Active'},'40697':{n:'JASON-3',alt:1336,inc:66.0,sz:3.5,t:'Active'},'29107':{n:'CLOUDSAT',alt:705,inc:98.2,sz:3.2,t:'Active'},'41866':{n:'ATLAS V R/B',alt:820,inc:63.4,sz:5.4,t:'Rocket'},'28654':{n:'NOAA 18',alt:854,inc:99.0,sz:4.2,t:'Active'},'26536':{n:'CZ-4B R/B',alt:780,inc:98.6,sz:6.0,t:'Rocket'},'22049':{n:'COSMOS 2151',alt:960,inc:83.0,sz:4.0,t:'Inactive'},'13552':{n:'COSMOS 1275 DEB',alt:990,inc:83.0,sz:0.08,t:'Debris'},'28868':{n:'SL-16 R/B',alt:850,inc:71.0,sz:10.7,t:'Rocket'},'40258':{n:'ALOS-2',alt:628,inc:97.9,sz:6.5,t:'Active'},'39634':{n:'GAOFEN-1',alt:645,inc:98.0,sz:3.0,t:'Active'},'44072':{n:'STARLINK-70',alt:550,inc:53.0,sz:3.2,t:'Active'},'46984':{n:'STARLINK-2305',alt:550,inc:53.0,sz:3.2,t:'Active'},'48078':{n:'STARLINK-4718',alt:540,inc:53.2,sz:3.2,t:'Active'},'51063':{n:'ONEWEB-0384',alt:1200,inc:87.9,sz:2.0,t:'Active'},'41765':{n:'SENTINEL-3A',alt:814,inc:98.6,sz:3.7,t:'Active'},'43437':{n:'SENTINEL-3B',alt:814,inc:98.6,sz:3.7,t:'Active'},'28376':{n:'ALOS (DAICHI)',alt:691,inc:98.2,sz:6.0,t:'Inactive'},'37849':{n:'SUOMI NPP',alt:834,inc:98.7,sz:4.6,t:'Active'},'43689':{n:'ICESAT-2',alt:500,inc:92.0,sz:3.0,t:'Active'},'49260':{n:'JAMES WEBB (L2)',alt:1500000,inc:0,sz:22,t:'Active'},'38709':{n:'LANDSAT 8',alt:705,inc:98.2,sz:3.0,t:'Active'},'44874':{n:'CZ-5B R/B',alt:350,inc:41.5,sz:33,t:'Rocket'},'31304':{n:'FENGYUN 1C DEB (A)',alt:880,inc:99.1,sz:0.05,t:'Debris'},'31310':{n:'FENGYUN 1C DEB (B)',alt:840,inc:98.8,sz:0.08,t:'Debris'},'34602':{n:'IRIDIUM 33 DEB',alt:775,inc:86.4,sz:0.12,t:'Debris'},'34603':{n:'IRIDIUM 33 DEB (A)',alt:790,inc:86.2,sz:0.08,t:'Debris'},'33442':{n:'COSMOS 2251 DEB (A)',alt:800,inc:74.1,sz:0.10,t:'Debris'},'33443':{n:'COSMOS 2251 DEB (B)',alt:770,inc:73.8,sz:0.06,t:'Debris'},'39271':{n:'SL-24 DEB',alt:910,inc:62.8,sz:0.15,t:'Debris'},'45026':{n:'BREEZE-M DEB',alt:440,inc:51.6,sz:0.20,t:'Debris'},'24946':{n:'GLOBALSTAR M026',alt:1414,inc:52.0,sz:2.5,t:'Active'},'25338':{n:'NOAA 15',alt:807,inc:98.5,sz:4.2,t:'Active'},'27607':{n:'SL-12 R/B',alt:640,inc:65.0,sz:8.0,t:'Rocket'},'38046':{n:'H-2A R/B',alt:620,inc:98.0,sz:4.0,t:'Rocket'},'42063':{n:'DELTA 4 DEB',alt:750,inc:63.5,sz:0.3,t:'Debris'},'40940':{n:'GALILEO-14',alt:23222,inc:56.0,sz:2.7,t:'Active'}
 };
 
-// ===== ALERTS =====
-const ALERTS=[
-  {o1:'STARLINK-5271',o2:'COSMOS 2251 DEB',m:'127m',t:'2026-02-24T14:32:18Z'},
-  {o1:'ISS',o2:'FENGYUN 1C DEB (A)',m:'340m',t:'2026-02-24T18:05:42Z'},
-  {o1:'ENVISAT',o2:'SL-16 R/B',m:'89m',t:'2026-02-24T22:17:03Z'},
-  {o1:'SENTINEL-3A',o2:'CZ-4B R/B',m:'210m',t:'2026-02-25T03:44:11Z'},
-  {o1:'TIANGONG',o2:'BREEZE-M DEB',m:'455m',t:'2026-02-25T08:22:36Z'},
-  {o1:'ONEWEB-0452',o2:'COSMOS 1408 DEB',m:'178m',t:'2026-02-25T11:58:19Z'},
-  {o1:'TERRA',o2:'IRIDIUM 33 DEB',m:'312m',t:'2026-02-25T16:09:47Z'}
-];
+// ===== ALERTS (loaded from API) =====
+let ALERTS=[];
 const ac=document.getElementById('alerts-container');
 const track=document.createElement('div');track.className='alerts-track';
-ALERTS.forEach(a=>{
-  const d=document.createElement('div');d.className='alert-card';
-  d.innerHTML=`<strong>⚠ CONJUNCTION</strong> ${a.o1} × ${a.o2} — ${a.m} — <span style="color:rgba(255,255,255,0.3)">${a.t}</span>`;
-  track.appendChild(d);
-});
-track.innerHTML+=track.innerHTML;
+
+function renderAlerts(data){
+  track.innerHTML='';
+  const list=data&&data.conjunctions&&data.conjunctions.length?data.conjunctions:[];
+  if(!list.length){
+    const d=document.createElement('div');d.className='alert-card';
+    d.innerHTML='<span style="color:rgba(255,255,255,0.3)">No active conjunction alerts</span>';
+    track.appendChild(d);
+  }else{
+    list.forEach(a=>{
+      const d=document.createElement('div');d.className='alert-card';
+      d.innerHTML=`<strong>⚠ CONJUNCTION</strong> ${a.o1} × ${a.o2} — ${a.miss} — <span style="color:rgba(255,255,255,0.3)">${a.tca}</span>`;
+      track.appendChild(d);
+    });
+    track.innerHTML+=track.innerHTML; // duplicate for seamless scroll
+  }
+  ac.innerHTML='';ac.appendChild(track);
+  // Update conjunction count
+  animateCounter(document.getElementById('conjunction-count'),data?data.count:0,1800);
+}
 ac.appendChild(track);
 
 // ===== KESSLER =====
@@ -499,26 +495,26 @@ for(let i=0;i<sn;i++){const r=60+Math.random()*140,t=Math.random()*Math.PI*2,p=M
 sg.setAttribute('position',new THREE.BufferAttribute(spp,3));
 scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0x8899bb,size:.12,sizeAttenuation:true})));
 
-// Earth
+// Earth — NASA Blue Marble texture + night lights
 const R=1.0;
+const tLoader=new THREE.TextureLoader();
+tLoader.crossOrigin='';
+const dayTex=tLoader.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
+const nightTex=tLoader.load('https://unpkg.com/three-globe/example/img/earth-night.jpg');
 const earthMat=new THREE.ShaderMaterial({
-  uniforms:{sunDir:{value:new THREE.Vector3(1,.3,.6).normalize()}},
+  uniforms:{dayMap:{value:dayTex},nightMap:{value:nightTex},sunDir:{value:new THREE.Vector3(1,.3,.6).normalize()}},
   vertexShader:`varying vec3 vN,vP,vWN;varying vec2 vUv;void main(){vN=normalize(normalMatrix*normal);vWN=normalize((modelMatrix*vec4(normal,0)).xyz);vP=(modelViewMatrix*vec4(position,1)).xyz;vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1);}`,
   fragmentShader:`
-    uniform vec3 sunDir;varying vec3 vN,vP,vWN;varying vec2 vUv;
-    float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-    float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
-    float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<6;i++){v+=a*noise(p);p*=2.;a*=.5;}return v;}
+    uniform sampler2D dayMap;uniform sampler2D nightMap;uniform vec3 sunDir;
+    varying vec3 vN,vP,vWN;varying vec2 vUv;
     void main(){
-      float NdL=dot(vWN,sunDir);float light=max(NdL,0.);float term=smoothstep(-.05,.15,NdL);
-      vec2 ll=vec2(vUv.x*14.,vUv.y*7.-3.5);float landN=fbm(ll+vec2(1.5,.8));float land=smoothstep(.44,.48,landN);
-      vec3 ocean=mix(vec3(.01,.03,.1),vec3(.04,.1,.3),term);vec3 landC=mix(vec3(.02,.06,.02),vec3(.08,.22,.08),term);
-      float coast=smoothstep(.44,.455,landN)-smoothstep(.455,.48,landN);vec3 coastC=vec3(.12,.3,.15)*term;
-      vec3 ice=vec3(.45,.48,.55)*(0.1+term*0.65);float polar=smoothstep(.83,.96,abs(vUv.y-.5)*2.);
-      vec3 surf=mix(mix(ocean,landC,land)+coastC*coast*1.5,ice,polar);
-      float dark=1.-smoothstep(-.03,.08,NdL);float cities=step(.72,fbm(ll*3.+vec2(5,3)))*land;vec3 cityG=vec3(1.,.8,.4)*cities*dark*.5;
-      vec3 color=surf*(0.15+light*term*.7)+cityG;
-      float rim=pow(1.-max(dot(normalize(vN),normalize(-vP)),0.),4.);color+=vec3(.08,.25,.6)*rim*.3;
+      float NdL=dot(vWN,sunDir);
+      float light=smoothstep(-0.15,0.2,NdL);
+      vec3 day=texture2D(dayMap,vUv).rgb;
+      vec3 night=texture2D(nightMap,vUv).rgb;
+      vec3 color=mix(night*0.5,day*(0.25+light*0.75),light);
+      float rim=pow(1.-max(dot(normalize(vN),normalize(-vP)),0.),4.);
+      color+=vec3(.08,.25,.6)*rim*.3;
       gl_FragColor=vec4(color,1.);
     }`
 });
@@ -777,8 +773,62 @@ loadCatalog().then(stats=>{
     animateCounter(document.getElementById('geo-count'),600,1500);
     animateCounter(document.getElementById('heo-count'),400,1500);
   }
-  animateCounter(document.getElementById('conjunction-count'),847,1800);
+
+  // Fetch live conjunction data
+  fetch(API_URL+'/conjunctions').then(r=>r.json()).then(data=>{
+    renderAlerts(data);
+  }).catch(()=>{
+    renderAlerts(null);
+  });
+
+  // Detect recent fragmentation events from catalog debris
+  detectFragmentations();
 });
+
+// Detect fragmentation events from recently cataloged debris clusters
+function detectFragmentations(){
+  const fc=document.getElementById('frag-container');
+  const fcount=document.getElementById('frag-count');
+  // Group debris objects by international designator prefix (launch ID)
+  // High NORAD_CAT_ID debris with same launch = recent breakup
+  const debrisByLaunch={};
+  let maxId=0;
+  for(const [id,sat] of Object.entries(SAT_DB)){
+    const nid=parseInt(id);
+    if(nid>maxId)maxId=nid;
+  }
+  // Look at debris with NORAD IDs in top 2000 (recently cataloged)
+  const threshold=maxId-2000;
+  for(const [id,sat] of Object.entries(SAT_DB)){
+    if(sat.t!=='Debris')continue;
+    const nid=parseInt(id);
+    if(nid<threshold)continue;
+    // Group by name prefix (e.g. "COSMOS 1408 DEB" → "COSMOS 1408")
+    const parts=sat.n.split(' DEB')[0].split(' R/B')[0];
+    if(!debrisByLaunch[parts])debrisByLaunch[parts]={count:0,maxId:0,minId:999999,alt:sat.alt,inc:sat.inc};
+    debrisByLaunch[parts].count++;
+    if(nid>debrisByLaunch[parts].maxId)debrisByLaunch[parts].maxId=nid;
+    if(nid<debrisByLaunch[parts].minId)debrisByLaunch[parts].minId=nid;
+  }
+  // Sort by highest NORAD ID (most recent cataloging)
+  const events=Object.entries(debrisByLaunch)
+    .filter(([,v])=>v.count>=3) // At least 3 fragments to count as event
+    .sort((a,b)=>b[1].maxId-a[1].maxId)
+    .slice(0,5);
+
+  fc.innerHTML='';
+  const colors=['🔴','🟠','🟡','🟢','🔵'];
+  events.forEach(([name,info],i)=>{
+    const div=document.createElement('div');div.className='frag-item';
+    div.innerHTML=`<div class="frag-event">${colors[i]||'⚪'} ${name}</div>`+
+      `<div class="frag-detail">+${info.count} fragments detected near ${Math.round(info.alt)}km / ${Math.round(info.inc)}° inc.</div>`;
+    fc.appendChild(div);
+  });
+  if(!events.length){
+    fc.innerHTML='<div class="frag-detail" style="color:rgba(255,255,255,0.25)">No recent fragmentation events detected</div>';
+  }
+  fcount.textContent=events.length;
+}
 
 setInterval(uTime,1000);uTime();
 
