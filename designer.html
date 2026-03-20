@@ -20,8 +20,9 @@
   .logo{display:flex;align-items:center;gap:10px;text-decoration:none;}
   .logo-text{font-family:var(--font-head);font-weight:700;font-size:14px;letter-spacing:3px;color:#fff;}
   .logo-text span{color:var(--cyan);}
-  .nav-links{display:flex;align-items:center;gap:12px;}
-  .nav-link{font-family:var(--font-body);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-decoration:none;padding:4px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;transition:all 0.2s;}
+  .nav-links{display:flex;align-items:center;gap:12px;overflow-x:auto;overflow-y:hidden;-ms-overflow-style:none;scrollbar-width:none;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;flex-shrink:1;}
+  .nav-links::-webkit-scrollbar{display:none;}
+  .nav-link{font-family:var(--font-body);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-decoration:none;padding:4px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;transition:all 0.2s;flex-shrink:0;white-space:nowrap;}
   .nav-link:hover{color:var(--cyan);border-color:var(--cyan-line);}
   .nav-link.active{color:var(--cyan);border-color:var(--cyan-line);background:var(--cyan-glow);}
   .lang-selector{position:relative;margin-left:4px;}
