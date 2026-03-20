@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>OrbitSmith — Mission Designer</title>
+<meta name="description" content="Design satellite missions interactively. Configure spacecraft, analyze feasibility, find launch vehicles — all in your browser.">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=IBM+Plex+Mono:wght@300;400;500&family=Noto+Sans+JP:wght@300;400;500&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --bg:#000;--surface:rgba(4,8,16,0.7);--surface2:rgba(8,14,28,0.5);--border:rgba(255,255,255,0.04);--border-h:rgba(255,255,255,0.08);
+    --cyan:#00e5ff;--cyan-dim:rgba(0,229,255,0.15);--cyan-glow:rgba(0,229,255,0.06);--cyan-line:rgba(0,229,255,0.3);
+    --text:#d0d4dc;--text-dim:rgba(255,255,255,0.55);--text-muted:rgba(255,255,255,0.4);--text-bright:rgba(255,255,255,0.9);
+    --green:#00e676;--green-dim:rgba(0,230,118,0.08);--red:#ff5252;--red-dim:rgba(255,82,82,0.08);--amber:#ffc107;--amber-dim:rgba(255,193,7,0.08);
+    --font-head:'Orbitron',sans-serif;--font-body:'IBM Plex Mono','Noto Sans JP',monospace;
+  }
+  body{background:var(--bg);color:var(--text);font-family:var(--font-body);overflow-x:hidden;line-height:1.6;}
+  .nav{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:1000;background:rgba(0,0,0,0.85);border-bottom:1px solid var(--border);backdrop-filter:blur(16px);}
+  .logo{display:flex;align-items:center;gap:10px;text-decoration:none;}
+  .logo-text{font-family:var(--font-head);font-weight:700;font-size:14px;letter-spacing:3px;color:#fff;}
+  .logo-text span{color:var(--cyan);}
+  .nav-links{display:flex;align-items:center;gap:12px;}
+  .nav-link{font-family:var(--font-body);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-decoration:none;padding:4px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;transition:all 0.2s;}
+  .nav-link:hover{color:var(--cyan);border-color:var(--cyan-line);}
+  .nav-link.active{color:var(--cyan);border-color:var(--cyan-line);background:var(--cyan-glow);}
+  .lang-selector{position:relative;margin-left:4px;}
+  .lang-current{font-family:var(--font-body);font-size:8px;letter-spacing:1.5px;color:rgba(255,255,255,0.4);padding:3px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;cursor:pointer;transition:all 0.2s;}
+  .lang-current:hover{color:var(--cyan);border-color:var(--cyan-line);}
+  .lang-dropdown{display:none;position:absolute;top:28px;right:0;background:rgba(4,8,16,0.95);border:1px solid rgba(255,255,255,0.08);border-radius:6px;overflow:hidden;z-index:2000;backdrop-filter:blur(12px);}
+  .lang-dropdown.open{display:block;}
+  .lang-option{font-size:9px;padding:6px 14px;color:rgba(255,255,255,0.4);cursor:pointer;white-space:nowrap;transition:all 0.15s;}
+  .lang-option:hover{background:rgba(0,229,255,0.06);color:var(--text);}
+  .lang-option.active{color:var(--cyan);}
+  .main{max-width:1120px;margin:0 auto;padding:80px 24px 60px;}
+  .page-header{text-align:center;margin-bottom:48px;}
+  .page-header h1{font-family:var(--font-head);font-size:clamp(20px,3.5vw,32px);font-weight:700;letter-spacing:6px;color:#fff;margin-bottom:8px;}
+  .page-header h1 span{color:var(--cyan);}
+  .page-header p{font-size:11px;color:var(--text-dim);letter-spacing:0.5px;max-width:540px;margin:0 auto;line-height:1.8;}
+  .steps-nav{display:flex;justify-content:center;gap:0;margin-bottom:40px;position:relative;}
+  .steps-nav::before{content:'';position:absolute;top:15px;left:50%;transform:translateX(-50%);width:560px;height:1px;background:rgba(255,255,255,0.06);}
+  .step-dot{display:flex;flex-direction:column;align-items:center;gap:8px;z-index:1;width:120px;cursor:pointer;transition:all 0.3s;}
+  .step-dot .dot{width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,255,255,0.1);background:rgba(4,8,16,0.9);display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-size:11px;font-weight:700;color:rgba(255,255,255,0.3);transition:all 0.3s;}
+  .step-dot.active .dot{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 20px rgba(0,229,255,0.15);}
+  .step-dot.done .dot{border-color:var(--green);color:var(--green);background:rgba(0,230,118,0.06);}
+  .step-dot .label{font-size:7px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.35);transition:color 0.3s;}
+  .step-dot.active .label{color:var(--cyan);}
+  .step-dot.done .label{color:rgba(0,230,118,0.5);}
+  .section{display:none;animation:fadeIn 0.4s ease;}
+  .section.visible{display:block;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+  /* Step 1 */
+  .mission-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:32px;}
+  .mission-card{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px 20px;cursor:pointer;transition:all 0.35s cubic-bezier(0.2,0.8,0.2,1);overflow:hidden;}
+  .mission-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 30% 0%,var(--cyan-glow),transparent 70%);opacity:0;transition:opacity 0.35s;}
+  .mission-card:hover{border-color:var(--cyan-dim);transform:translateY(-4px);}
+  .mission-card:hover::before{opacity:1;}
+  .mission-card.selected{border-color:var(--cyan);box-shadow:0 0 24px rgba(0,229,255,0.08);}
+  .mission-card.selected::before{opacity:1;}
+  .mission-icon svg{width:36px;height:36px;margin-bottom:14px;position:relative;z-index:1;}
+  .mission-name{font-family:var(--font-head);font-size:12px;font-weight:700;color:var(--text-bright);letter-spacing:2px;margin-bottom:6px;position:relative;z-index:1;}
+  .mission-desc{font-size:10px;color:var(--text-dim);line-height:1.6;margin-bottom:12px;position:relative;z-index:1;}
+  .mission-meta{display:flex;gap:8px;flex-wrap:wrap;position:relative;z-index:1;}
+  .mission-meta span{font-size:8px;color:var(--text-muted);padding:2px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:3px;letter-spacing:0.5px;}
+
+  /* Step 2 */
+  .config-layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  .config-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;}
+  .config-panel-title{font-family:var(--font-head);font-size:10px;font-weight:700;letter-spacing:3px;color:var(--cyan);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid rgba(0,229,255,0.08);}
+  .param-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;}
+  .param-label{font-size:10px;color:var(--text-dim);letter-spacing:0.5px;min-width:90px;display:flex;align-items:center;gap:4px;}
+  .param-control{display:flex;align-items:center;gap:8px;flex:1;justify-content:flex-end;}
+  .param-slider{-webkit-appearance:none;appearance:none;height:3px;background:rgba(255,255,255,0.08);border-radius:2px;outline:none;flex:1;max-width:140px;}
+  .param-slider::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--cyan);cursor:pointer;box-shadow:0 0 8px rgba(0,229,255,0.3);}
+  .param-value{font-family:var(--font-head);font-size:11px;color:#fff;min-width:52px;text-align:right;letter-spacing:1px;}
+  .param-unit{font-size:9px;color:rgba(255,255,255,0.35);min-width:28px;}
+  .param-preset{font-size:8px;color:rgba(0,229,255,0.5);letter-spacing:0.5px;margin-top:-4px;margin-bottom:8px;text-align:right;}
+  .param-select{background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.15);color:var(--cyan);font-family:var(--font-body);font-size:10px;padding:3px 8px;border-radius:4px;letter-spacing:1px;cursor:pointer;}
+  .param-select option{background:#0a0e1a;color:var(--text);}
+
+  /* Help tooltip */
+  .help-btn{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1px solid rgba(255,255,255,0.12);background:transparent;color:rgba(255,255,255,0.25);font-size:8px;cursor:pointer;transition:all 0.2s;flex-shrink:0;font-family:var(--font-body);line-height:1;padding:0;}
+  .help-btn:hover{color:var(--cyan);border-color:var(--cyan-line);}
+  .help-tip{position:fixed;z-index:2000;max-width:280px;padding:12px 14px;background:rgba(4,8,20,0.96);border:1px solid rgba(0,229,255,0.2);border-radius:8px;font-size:10px;color:var(--text-dim);line-height:1.7;letter-spacing:0.3px;backdrop-filter:blur(12px);box-shadow:0 8px 32px rgba(0,0,0,0.6);pointer-events:auto;}
+  .help-tip .ht-title{font-family:var(--font-head);font-size:9px;color:var(--cyan);letter-spacing:1.5px;margin-bottom:6px;}
+
+  /* Step 3: Analysis — 1-column, left/right split */
+  .analysis-stack{display:flex;flex-direction:column;gap:16px;margin-bottom:24px;}
+  .analysis-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;position:relative;overflow:hidden;}
+  .ac-inner{display:grid;grid-template-columns:38% 1fr;gap:24px;align-items:start;}
+  .ac-inner.ac-wide-left{grid-template-columns:44% 1fr;}
+  .ac-left{}
+  .ac-right{min-width:0;}
+  .analysis-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .analysis-title{font-family:var(--font-head);font-size:11px;font-weight:700;letter-spacing:2px;color:rgba(255,255,255,0.85);}
+  .status-badge{font-size:8px;font-weight:500;letter-spacing:2px;text-transform:uppercase;padding:3px 10px;border-radius:3px;}
+  .status-go{color:var(--green);background:var(--green-dim);border:1px solid rgba(0,230,118,0.15);}
+  .status-warn{color:var(--amber);background:var(--amber-dim);border:1px solid rgba(255,193,7,0.15);}
+  .status-nogo{color:var(--red);background:var(--red-dim);border:1px solid rgba(255,82,82,0.15);}
+  .gauge-row{display:flex;align-items:flex-start;gap:16px;margin-bottom:10px;}
+  .gauge-wrap{display:flex;flex-direction:column;align-items:center;flex-shrink:0;}
+  .gauge-sub{font-size:7px;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.3);text-align:center;margin-top:4px;}
+  .gauge-ring{position:relative;width:56px;height:56px;flex-shrink:0;}
+  .gauge-ring svg{width:56px;height:56px;transform:rotate(-90deg);}
+  .gauge-ring circle{fill:none;stroke-width:4;stroke-linecap:round;}
+  .gauge-bg{stroke:rgba(255,255,255,0.06);}
+  .gauge-fill{transition:stroke-dashoffset 0.8s ease;}
+  .gauge-label{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--font-head);font-weight:700;letter-spacing:0.5px;white-space:nowrap;}
+  .gauge-stats{flex:1;min-width:0;}
+  .gauge-stat{display:flex;justify-content:space-between;font-size:10px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.03);gap:8px;}
+  .gauge-stat-label{color:var(--text-dim);white-space:nowrap;}
+  .gauge-stat-value{color:rgba(255,255,255,0.8);font-family:var(--font-head);font-size:10px;letter-spacing:1px;text-align:right;}
+  .model-note{font-size:8px;color:rgba(255,255,255,0.25);margin-top:8px;letter-spacing:0.5px;line-height:1.5;}
+  .orbit-cycle{position:relative;background:rgba(255,255,255,0.01);border-radius:6px;border:1px solid rgba(255,255,255,0.03);overflow:hidden;}
+  .orbit-cycle svg{width:100%;display:block;}
+  .orbit-cycle .phase-label{font-family:var(--font-body);font-size:8px;fill:rgba(255,255,255,0.35);}
+  .orbit-cycle .value-label{font-family:var(--font-head);font-size:8px;letter-spacing:0.5px;}
+
+  /* Mass bars */
+  .mass-bars{margin-top:6px;}
+  .mass-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+  .mass-bar-label{font-size:9px;color:var(--text-dim);width:70px;text-align:right;flex-shrink:0;}
+  .mass-bar-track{flex:1;height:10px;background:rgba(255,255,255,0.03);border-radius:3px;overflow:hidden;}
+  .mass-bar-fill{height:100%;border-radius:3px;transition:width 0.6s ease;}
+  .mass-bar-val{font-size:9px;color:rgba(255,255,255,0.6);font-family:var(--font-head);width:48px;letter-spacing:0.5px;}
+  .envelope-row{display:flex;align-items:center;gap:16px;margin-top:12px;padding:10px;background:rgba(255,255,255,0.01);border-radius:6px;border:1px solid rgba(255,255,255,0.03);}
+  .envelope-3d{width:60px;height:60px;flex-shrink:0;}
+  .envelope-dims{flex:1;}
+  .envelope-dims .dim-row{display:flex;justify-content:space-between;font-size:10px;padding:2px 0;}
+  .dim-label{color:var(--text-dim);}
+  .dim-value{font-family:var(--font-head);font-size:10px;color:rgba(255,255,255,0.8);letter-spacing:1px;}
+
+  /* Step 4 */
+  .filter-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  .filter-btn{font-family:var(--font-body);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;padding:4px 12px;border:1px solid var(--border-h);border-radius:4px;background:transparent;color:var(--text-dim);cursor:pointer;transition:all 0.2s;}
+  .filter-btn:hover{border-color:var(--cyan-dim);color:var(--text);}
+  .filter-btn.active{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-glow);}
+  .rocket-list{display:flex;flex-direction:column;gap:12px;}
+  .rocket-card{display:grid;grid-template-columns:48px 1fr auto;align-items:center;gap:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;transition:all 0.3s;}
+  .rocket-card:hover{border-color:var(--cyan-dim);}
+  .rocket-card.best{border-color:var(--cyan);box-shadow:0 0 20px rgba(0,229,255,0.06);position:relative;}
+  .rocket-rank{font-family:var(--font-head);font-size:18px;font-weight:700;color:rgba(255,255,255,0.15);text-align:center;}
+  .rocket-card.best .rocket-rank{color:var(--cyan);}
+  .rocket-info{display:flex;flex-direction:column;gap:3px;}
+  .rocket-name{font-family:var(--font-head);font-size:12px;font-weight:700;color:var(--text-bright);letter-spacing:2px;}
+  .rocket-provider{font-size:10px;color:var(--text-dim);}
+  .rocket-tags{display:flex;gap:6px;margin-top:3px;flex-wrap:wrap;}
+  .rocket-tags span{font-size:8px;padding:2px 6px;border:1px solid rgba(255,255,255,0.08);border-radius:3px;color:var(--text-muted);letter-spacing:0.5px;}
+  .rocket-stats{text-align:right;display:flex;flex-direction:column;gap:3px;min-width:80px;}
+  .rocket-margin{font-family:var(--font-head);font-size:16px;font-weight:700;letter-spacing:1px;}
+  .rocket-margin.high{color:var(--green);}
+  .rocket-margin.med{color:var(--amber);}
+  .rocket-margin.low{color:var(--red);}
+  .rocket-cap{font-size:9px;color:var(--text-muted);}
+  .best-tag{position:absolute;top:-1px;left:20px;font-size:7px;letter-spacing:2px;text-transform:uppercase;color:var(--cyan);background:rgba(0,10,20,0.95);border:1px solid rgba(0,229,255,0.2);padding:2px 8px;border-radius:0 0 4px 4px;border-top:none;}
+  .ranking-note{font-size:9px;color:var(--text-muted);margin-top:16px;padding:10px 14px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);border-radius:6px;line-height:1.6;}
+
+  /* Step 5 */
+  .terminal{width:100%;background:rgba(0,8,16,0.8);border:1px solid rgba(0,229,255,0.08);border-radius:12px;overflow:hidden;}
+  .term-header{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid rgba(0,229,255,0.06);background:rgba(0,229,255,0.02);}
+  .term-dot{width:6px;height:6px;border-radius:50%;}
+  .term-dot.r{background:rgba(255,82,82,0.4);}.term-dot.y{background:rgba(255,193,7,0.4);}.term-dot.g{background:rgba(0,230,118,0.4);}
+  .term-title{font-family:var(--font-head);font-size:9px;letter-spacing:3px;color:rgba(0,229,255,0.4);margin-left:8px;}
+  .term-body{padding:20px;font-size:11px;line-height:2.0;color:rgba(0,229,255,0.6);min-height:420px;max-height:650px;overflow-y:auto;}
+  .term-line{opacity:0;animation:termType 0.3s ease forwards;white-space:nowrap;}
+  .term-line .label{color:rgba(0,229,255,0.8);display:inline-block;min-width:200px;}
+  .term-line .val{color:rgba(200,255,255,0.9);font-family:var(--font-head);font-size:11px;letter-spacing:1px;}
+  .term-line .val.go{color:rgba(0,230,118,0.8);}.term-line .val.warn{color:rgba(255,193,7,0.8);}.term-line .val.nogo{color:rgba(255,82,82,0.8);}
+  .term-line .prompt{color:rgba(0,229,255,0.3);}
+  .term-line .section-label{color:rgba(255,255,255,0.3);font-size:9px;letter-spacing:3px;text-transform:uppercase;}
+  .term-line .sub-label{color:rgba(0,229,255,0.5);font-size:9px;letter-spacing:2px;}
+  .term-cursor{display:inline-block;width:7px;height:14px;background:rgba(0,229,255,0.6);animation:blink 0.8s step-end infinite;vertical-align:middle;margin-left:2px;}
+  @keyframes blink{50%{opacity:0}}
+  @keyframes termType{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}
+  .term-status{display:flex;justify-content:space-between;padding:8px 16px;border-top:1px solid rgba(0,229,255,0.04);font-size:8px;color:rgba(0,229,255,0.25);letter-spacing:1px;}
+
+  .bottom-bar{display:flex;justify-content:space-between;align-items:center;margin-top:32px;padding-top:20px;border-top:1px solid var(--border);}
+  .btn{font-family:var(--font-body);font-size:10px;letter-spacing:2px;text-transform:uppercase;padding:10px 20px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:rgba(255,255,255,0.5);cursor:pointer;transition:all 0.2s;}
+  .btn:hover{color:rgba(255,255,255,0.8);border-color:rgba(255,255,255,0.2);}
+  .btn-primary{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-glow);}
+  .btn-primary:hover{background:rgba(0,229,255,0.12);box-shadow:0 0 20px rgba(0,229,255,0.1);}
+  .footer{position:relative;z-index:1;padding:40px 24px;border-top:1px solid rgba(255,255,255,0.03);text-align:center;}
+  .footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:16px;flex-wrap:wrap;}
+  .footer-links a{font-size:10px;color:rgba(255,255,255,0.3);text-decoration:none;letter-spacing:1px;transition:color 0.2s;}
+  .footer-links a:hover{color:rgba(0,229,255,0.6);}
+  .footer-copy{font-size:8px;color:rgba(255,255,255,0.15);letter-spacing:0.5px;}
+
+  /* Responsive */
+  @media(max-width:768px){
+    .config-layout{grid-template-columns:1fr;}
+    .ac-inner{grid-template-columns:1fr;gap:16px;}
+    .rocket-card{grid-template-columns:36px 1fr auto;padding:12px 14px;gap:10px;}
+    .steps-nav::before{width:340px;}
+    .step-dot{width:72px;}
+    .step-dot .dot{width:26px;height:26px;font-size:10px;}
+    .mission-grid{grid-template-columns:1fr;}
+    .mission-icon svg{width:28px;height:28px;margin-bottom:10px;}
+    .term-body{font-size:10px;}
+    .term-line .label{min-width:150px;}
+  }
+  @media(max-width:600px){
+    .nav{height:44px;padding:0 10px;}
+    .nav-link{font-size:7px;padding:3px 5px;letter-spacing:1px;}
+    .nav-links{gap:4px;}
+    .logo-text{font-size:12px;letter-spacing:2px;}
+    .main{padding:60px 12px 40px;}
+    .step-dot{width:56px;}
+    .step-dot .label{font-size:5px;letter-spacing:1px;}
+    .step-dot .dot{width:22px;height:22px;font-size:9px;}
+    .steps-nav::before{width:220px;}
+    .param-row{flex-direction:column;align-items:flex-start;gap:6px;}
+    .param-control{width:100%;justify-content:flex-start;}
+    .param-slider{max-width:none;}
+    .rocket-card{grid-template-columns:30px 1fr auto;gap:8px;}
+    .rocket-name{font-size:10px;letter-spacing:1px;}
+    .rocket-rank{font-size:14px;}
+    .term-body{font-size:9px;padding:14px;min-height:350px;}
+    .term-line .label{min-width:120px;font-size:9px;}
+    .term-line .val{font-size:9px;}
+    .term-status{font-size:7px;flex-wrap:wrap;gap:4px;}
+    .gauge-ring{width:48px;height:48px;}
+    .gauge-ring svg{width:48px;height:48px;}
+    .gauge-label{font-size:10px!important;}
+    .orbit-cycle{height:110px;}
+    .mass-bar-label{width:55px;font-size:8px;}
+  }
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="index.html" class="logo">
+    <svg width="28" height="28" viewBox="0 0 512 512" fill="none"><circle cx="256" cy="256" r="120" stroke="#00e5ff" stroke-width="12" fill="none"/><ellipse cx="256" cy="256" rx="160" ry="56" transform="rotate(-30 256 256)" stroke="rgba(0,229,255,0.6)" stroke-width="14" fill="none"/><circle cx="256" cy="256" r="32" fill="#00e5ff"/></svg>
+    <div class="logo-text">ORBIT<span>SMITH</span></div>
+  </a>
+  <div class="nav-links">
+    <a href="tracker.html" class="nav-link">TRACKER</a>
+    <a href="imagery.html" class="nav-link">IMAGERY</a>
+    <a href="designer.html" class="nav-link active">DESIGNER</a>
+    <a href="about.html" class="nav-link">ABOUT</a>
+    <a href="contact.html" class="nav-link">CONTACT</a>
+  </div>
+  <div class="lang-selector">
+    <div class="lang-current" id="lang-current">EN</div>
+    <div class="lang-dropdown" id="lang-dropdown">
+      <div class="lang-option active" data-lang="en">🇺🇸 English</div>
+      <div class="lang-option" data-lang="ja">🇯🇵 日本語</div>
+      <div class="lang-option" data-lang="zh">🇨🇳 中文</div>
+      <div class="lang-option" data-lang="es">🇪🇸 Español</div>
+    </div>
+  </div>
+</div>
+<div class="main">
+  <div class="page-header">
+    <h1 data-i18n="pageTitle">MISSION <span>DESIGNER</span></h1>
+    <p data-i18n="pageSub">Define your mission, configure your satellite, analyze feasibility, find a ride to orbit, and review your complete design summary.</p>
+  </div>
+  <div class="steps-nav">
+    <div class="step-dot active" onclick="goStep(1)"><div class="dot">1</div><div class="label" data-i18n="stepMission">Mission</div></div>
+    <div class="step-dot" onclick="goStep(2)"><div class="dot">2</div><div class="label" data-i18n="stepConfig">Config</div></div>
+    <div class="step-dot" onclick="goStep(3)"><div class="dot">3</div><div class="label" data-i18n="stepAnalysis">Analysis</div></div>
+    <div class="step-dot" onclick="goStep(4)"><div class="dot">4</div><div class="label" data-i18n="stepLaunch">Launch</div></div>
+    <div class="step-dot" onclick="goStep(5)"><div class="dot">5</div><div class="label" data-i18n="stepSummary">Summary</div></div>
+  </div>
+  <div class="section visible" id="step1">
+    <div class="mission-grid" id="missionGrid"></div>
+    <div class="bottom-bar"><div></div><button class="btn btn-primary" onclick="goStep(2)" data-i18n="btnConfigure">CONFIGURE SATELLITE →</button></div>
+  </div>
+  <div class="section" id="step2">
+    <div class="config-layout">
+      <div class="config-panel">
+        <div class="config-panel-title" data-i18n="panelOrbit">ORBIT</div>
+        <div class="param-row"><span class="param-label" data-i18n="lblOrbitType">Orbit type</span><div class="param-control"><select class="param-select" id="cfg-orbitType"><option value="SSO">SSO (Sun-sync)</option><option value="LEO">LEO</option><option value="MEO">MEO</option><option value="HEO">HEO</option></select></div></div>
+        <div class="param-row"><span class="param-label" data-i18n-html="lblAltitude">Altitude <button class="help-btn" data-help="altitude">?</button></span><div class="param-control"><input type="range" class="param-slider" id="cfg-altitude" min="200" max="2000" step="10" value="550"><span class="param-value" id="val-altitude">550</span><span class="param-unit">km</span></div></div>
+        <div class="param-preset" id="preset-altitude">SSO recommended: 500–700 km</div>
+        <div class="param-row"><span class="param-label" data-i18n-html="lblInclination">Inclination <button class="help-btn" data-help="inclination">?</button></span><div class="param-control"><input type="range" class="param-slider" id="cfg-inclination" min="0" max="180" step="0.1" value="97.4"><span class="param-value" id="val-inclination">97.4</span><span class="param-unit">deg</span></div></div>
+        <div class="param-row"><span class="param-label" data-i18n-html="lblEccentricity">Eccentricity <button class="help-btn" data-help="eccentricity">?</button></span><div class="param-control"><input type="range" class="param-slider" id="cfg-eccentricity" min="0" max="700" step="1" value="1"><span class="param-value" id="val-eccentricity">0.001</span><span class="param-unit"></span></div></div>
+      </div>
+      <div class="config-panel">
+        <div class="config-panel-title" data-i18n="panelBus">BUS</div>
+        <div class="param-row"><span class="param-label" data-i18n="lblTotalMass">Total mass</span><div class="param-control"><input type="range" class="param-slider" id="cfg-mass" min="1" max="500" step="1" value="120"><span class="param-value" id="val-mass">120</span><span class="param-unit">kg</span></div></div>
+        <div class="param-preset" id="preset-mass">Optical EO typical: 80–200 kg</div>
+        <div class="param-row"><span class="param-label" data-i18n-html="lblSolarPanels">Solar panels <button class="help-btn" data-help="solarArea">?</button></span><div class="param-control"><input type="range" class="param-slider" id="cfg-solarArea" min="1" max="200" step="1" value="40"><span class="param-value" id="val-solarArea">4.0</span><span class="param-unit">m²</span></div></div>
+        <div class="param-row"><span class="param-label" data-i18n-html="lblBattery">Battery <button class="help-btn" data-help="battery">?</button></span><div class="param-control"><input type="range" class="param-slider" id="cfg-battery" min="10" max="2000" step="10" value="240"><span class="param-value" id="val-battery">240</span><span class="param-unit">Wh</span></div></div>
+        <div class="param-row"><span class="param-label" data-i18n="lblDesignLife">Design life</span><div class="param-control"><input type="range" class="param-slider" id="cfg-designLife" min="1" max="15" step="1" value="5"><span class="param-value" id="val-designLife">5</span><span class="param-unit">yr</span></div></div>
+      </div>
+      <div class="config-panel">
+        <div class="config-panel-title" data-i18n="panelComms">COMMUNICATIONS</div>
+        <div class="param-row"><span class="param-label" data-i18n="lblDownlink">Downlink band</span><div class="param-control"><select class="param-select" id="cfg-band"><option value="UHF">UHF (400 MHz)</option><option value="S">S-band (2.2 GHz)</option><option value="X" selected>X-band (8.2 GHz)</option><option value="Ka">Ka-band (26.5 GHz)</option></select></div></div>
+        <div class="param-row"><span class="param-label" data-i18n-html="lblTxPower">TX power <button class="help-btn" data-help="txPower">?</button></span><div class="param-control"><input type="range" class="param-slider" id="cfg-txPower" min="1" max="50" step="1" value="10"><span class="param-value" id="val-txPower">10</span><span class="param-unit">W</span></div></div>
+        <div class="param-row"><span class="param-label" data-i18n-html="lblAntGain">Ant. gain <button class="help-btn" data-help="antennaGain">?</button></span><div class="param-control"><input type="range" class="param-slider" id="cfg-antennaGain" min="0" max="40" step="1" value="18"><span class="param-value" id="val-antennaGain">18</span><span class="param-unit">dBi</span></div></div>
+        <div class="param-row"><span class="param-label" data-i18n="lblGroundStation">Ground station</span><div class="param-control"><select class="param-select" id="cfg-gs"><option value="0">Svalbard (78°N)</option><option value="1">Troll (72°S)</option><option value="2">Fairbanks (65°N)</option><option value="3">Hawaii (20°N)</option><option value="4">Tokyo (36°N)</option><option value="5">Inuvik (68°N)</option><option value="6">Punta Arenas (53°S)</option><option value="7">Singapore (1°N)</option><option value="8">Weilheim (48°N)</option><option value="9">Hartebeesthoek (26°S)</option></select></div></div>
+        <div class="param-row"><span class="param-label" data-i18n-html="lblGT">G/T <button class="help-btn" data-help="gt">?</button></span><div class="param-control"><span class="param-value" id="gs-info" style="font-size:10px;color:var(--text-dim)">10m, G/T 28 dB/K</span></div></div>
+      </div>
+      <div class="config-panel">
+        <div class="config-panel-title" data-i18n="panelPayload">PAYLOAD</div>
+        <div class="param-row"><span class="param-label" data-i18n="lblPayloadMass">Payload mass</span><div class="param-control"><input type="range" class="param-slider" id="cfg-payloadMass" min="1" max="200" step="1" value="35"><span class="param-value" id="val-payloadMass">35</span><span class="param-unit">kg</span></div></div>
+        <div class="param-row"><span class="param-label" data-i18n="lblPeakPower">Peak power</span><div class="param-control"><input type="range" class="param-slider" id="cfg-payloadPower" min="1" max="200" step="1" value="60"><span class="param-value" id="val-payloadPower">60</span><span class="param-unit">W</span></div></div>
+        <div class="param-row"><span class="param-label" data-i18n-html="lblDutyCycle">Duty cycle <button class="help-btn" data-help="dutyCycle">?</button></span><div class="param-control"><input type="range" class="param-slider" id="cfg-dutyCycle" min="1" max="100" step="1" value="30"><span class="param-value" id="val-dutyCycle">30</span><span class="param-unit">%</span></div></div>
+        <div class="param-row"><span class="param-label" data-i18n="lblDataRate">Data rate</span><div class="param-control"><input type="range" class="param-slider" id="cfg-dataRate" min="1" max="1000" step="1" value="150"><span class="param-value" id="val-dataRate">150</span><span class="param-unit">Mbps</span></div></div>
+      </div>
+    </div>
+    <div class="bottom-bar"><button class="btn" onclick="goStep(1)" data-i18n="btnBackMission">← MISSION</button><button class="btn btn-primary" onclick="goStep(3)" data-i18n="btnRunAnalysis">RUN ANALYSIS →</button></div>
+  </div>
+  <div class="section" id="step3">
+    <div class="analysis-stack" id="analysisStack">
+      <div class="analysis-card" id="card-power"></div>
+      <div class="analysis-card" id="card-link"></div>
+      <div class="analysis-card" id="card-decay"></div>
+      <div class="analysis-card" id="card-mass"></div>
+      <div class="analysis-card" id="card-thermal"></div>
+    </div>
+    <div class="bottom-bar"><button class="btn" onclick="goStep(2)" data-i18n="btnBackConfig">← CONFIG</button><button class="btn btn-primary" onclick="goStep(4)" data-i18n="btnFindLaunch">FIND LAUNCH VEHICLE →</button></div>
+  </div>
+  <div class="section" id="step4">
+    <div class="filter-bar" id="filterBar">
+      <button class="filter-btn active" data-filter="all" data-i18n="filterAll">All</button>
+      <button class="filter-btn" data-filter="rideshare" data-i18n="filterRideshare">Rideshare</button>
+      <button class="filter-btn" data-filter="dedicated" data-i18n="filterDedicated">Dedicated</button>
+      <button class="filter-btn" data-filter="sso" data-i18n="filterSSO">SSO-capable</button>
+    </div>
+    <div class="rocket-list" id="rocketList"></div>
+    <div class="ranking-note" data-i18n="rankNote">Ranked by payload margin to target orbit. Rideshare-capable vehicles are prioritized for cost efficiency.</div>
+    <div class="bottom-bar"><button class="btn" onclick="goStep(3)" data-i18n="btnBackAnalysis">← ANALYSIS</button><button class="btn btn-primary" onclick="goStep(5)" data-i18n="btnViewSummary">VIEW SUMMARY →</button></div>
+  </div>
+  <div class="section" id="step5">
+    <div class="terminal">
+      <div class="term-header"><div class="term-dot r"></div><div class="term-dot y"></div><div class="term-dot g"></div><div class="term-title">ORBITSMITH — MISSION SUMMARY</div></div>
+      <div class="term-body" id="termBody"></div>
+      <div class="term-status"><span>SYS:NOMINAL</span><span id="ts-mission">OPTICAL EO · 120 KG</span><span id="ts-orbit">SSO 550 KM · 97.4°</span></div>
+    </div>
+    <div class="bottom-bar"><button class="btn" onclick="goStep(4)" data-i18n="btnBackLaunch">← LAUNCH</button><button class="btn btn-primary" onclick="goStep(1)" data-i18n="btnNewDesign">NEW DESIGN ↻</button></div>
+  </div>
+</div>
+<footer class="footer">
+  <div class="footer-links"><a href="tracker.html">Tracker</a><a href="imagery.html">Imagery</a><a href="designer.html">Designer</a><a href="about.html">About</a><a href="contact.html">Contact</a><a href="https://github.com/orbitsmith" target="_blank">GitHub</a></div>
+  <div class="footer-copy">© 2026 OrbitSmith · v9a Mission Designer</div>
+</footer>
+<script>
+const K = {Re:6371e3, mu:3.986004418e14, S:1361, k_dB:-228.6, sigma:5.670374419e-8, c:299792458, albedo:0.3, E_IR:237, Cd:2.2};
+
+// === i18n ===
+let curLang='en';
+const L={
+en:{pageTitle:'MISSION <span>DESIGNER</span>',pageSub:'Define your mission, configure your satellite, analyze feasibility, find a ride to orbit, and review your complete design summary.',
+stepMission:'Mission',stepConfig:'Config',stepAnalysis:'Analysis',stepLaunch:'Launch',stepSummary:'Summary',
+btnConfigure:'CONFIGURE SATELLITE →',btnBackMission:'← MISSION',btnRunAnalysis:'RUN ANALYSIS →',btnBackConfig:'← CONFIG',btnFindLaunch:'FIND LAUNCH VEHICLE →',btnBackAnalysis:'← ANALYSIS',btnViewSummary:'VIEW SUMMARY →',btnBackLaunch:'← LAUNCH',btnNewDesign:'NEW DESIGN ↻',
+panelOrbit:'ORBIT',panelBus:'BUS',panelComms:'COMMUNICATIONS',panelPayload:'PAYLOAD',
+lblOrbitType:'Orbit type',lblAltitude:'Altitude',lblInclination:'Inclination',lblEccentricity:'Eccentricity',
+lblTotalMass:'Total mass',lblSolarPanels:'Solar panels',lblBattery:'Battery',lblDesignLife:'Design life',
+lblDownlink:'Downlink band',lblTxPower:'TX power',lblAntGain:'Ant. gain',lblGroundStation:'Ground station',lblGT:'G/T',
+lblPayloadMass:'Payload mass',lblPeakPower:'Peak power',lblDutyCycle:'Duty cycle',lblDataRate:'Data rate',
+filterAll:'All',filterRideshare:'Rideshare',filterDedicated:'Dedicated',filterSSO:'SSO-capable',
+rankNote:'Ranked by payload margin to target orbit. Rideshare-capable vehicles are prioritized for cost efficiency.',
+mName:['OPTICAL EO','SAR','IoT / M2M','AIS / ADS-B','TECH DEMO','SCIENCE','COMMS RELAY'],
+mDesc:['High-resolution Earth imaging for mapping, agriculture, disaster response','All-weather radar imaging, surface deformation, maritime surveillance','Sensor data collection, asset tracking, environmental monitoring','Ship tracking, aircraft surveillance, maritime domain awareness','New component validation, in-orbit testing, qualification flights','Space environment, heliophysics, astronomy, magnetosphere studies','Broadband, store-and-forward, emergency communications'],
+aPower:'POWER BUDGET',aLink:'LINK BUDGET',aDecay:'ORBIT DECAY',aMass:'MASS BUDGET',aThermal:'THERMAL',
+go:'GO',warn:'WARN',nogo:'NO-GO',
+sGeneration:'Generation',sConsumption:'Consumption',sMargin:'Margin',sDod:'DoD',sNaturalReentry:'Natural re-entry',sFccDeadline:'FCC deadline',sDeorbitDV:'Deorbit ΔV',sDragArea:'Drag area',sUsed:'Used',sHotPeak:'Hot peak',sColdMin:'Cold min',sOpRange:'Op. range',sDataRate:'Data rate',sPassesDay:'Passes/day',sDailyDL:'Daily DL',sGS:'Ground station',sAvgPass:'Avg pass',sBand:'Band',sMod:'Modulation',
+gSunlit:'Sunlit',gEclipse:'Eclipse',gEnvelope:'ENVELOPE',
+massSubs:['Structure','Power','Payload','ADCS','OBC','Comms','Thermal','Harness'],
+gMargin:'MARGIN',gDbMargin:'dB MARGIN',gReentry:'RE-ENTRY',gStatus:'STATUS',
+tMissionType:'Mission type',tOrbit:'Orbit',tDesignLife:'Design life',tTotalMass:'Total mass',tEnvelope:'Envelope',tStatus:'Status',
+bestMatch:'#1 BEST MATCH',tMission:'MISSION',tBudget:'BUDGET ANALYSIS',tLaunchVehicle:'LAUNCH VEHICLE',tRecommended:'Recommended',tPayloadMargin:'Payload margin',tComplete:'Mission design complete.'},
+ja:{pageTitle:'ミッション<span>デザイナー</span>',pageSub:'ミッションを定義し、衛星を設計し、実現性を解析し、ロケットを選び、設計サマリーを確認します。',
+stepMission:'ミッション',stepConfig:'構成',stepAnalysis:'解析',stepLaunch:'打上げ',stepSummary:'サマリー',
+btnConfigure:'衛星を構成 →',btnBackMission:'← ミッション',btnRunAnalysis:'解析実行 →',btnBackConfig:'← 構成',btnFindLaunch:'ロケット検索 →',btnBackAnalysis:'← 解析',btnViewSummary:'サマリー表示 →',btnBackLaunch:'← 打上げ',btnNewDesign:'新規設計 ↻',
+panelOrbit:'軌道',panelBus:'バス',panelComms:'通信',panelPayload:'ペイロード',
+lblOrbitType:'軌道タイプ',lblAltitude:'高度',lblInclination:'軌道傾斜角',lblEccentricity:'離心率',
+lblTotalMass:'総質量',lblSolarPanels:'太陽電池面積',lblBattery:'バッテリー容量',lblDesignLife:'設計寿命',
+lblDownlink:'ダウンリンク帯',lblTxPower:'送信電力',lblAntGain:'アンテナゲイン',lblGroundStation:'地上局',lblGT:'G/T',
+lblPayloadMass:'ペイロード質量',lblPeakPower:'ピーク電力',lblDutyCycle:'デューティ比',lblDataRate:'データレート',
+filterAll:'すべて',filterRideshare:'相乗り',filterDedicated:'専用',filterSSO:'SSO対応',
+rankNote:'ペイロードマージン順に表示。相乗り可能なロケットを優先しています。',
+mName:['光学地球観測','合成開口レーダー','IoT通信','船舶・航空機追跡','技術実証','科学観測','通信中継'],
+mDesc:['高解像度地球撮像 — 地図作成、農業、災害対応','全天候型レーダー撮像、地表変動、海洋監視','センサーデータ収集、資産追跡、環境モニタリング','船舶追跡、航空機監視、海域認識','新規コンポーネント検証、軌道上試験','宇宙環境、太陽物理、天文、磁気圏研究','ブロードバンド、蓄積転送、緊急通信'],
+aPower:'電力バジェット',aLink:'通信リンク',aDecay:'軌道減衰',aMass:'質量バジェット',aThermal:'熱設計',
+go:'適合',warn:'警告',nogo:'不適合',
+sGeneration:'発電',sConsumption:'消費',sMargin:'マージン',sDod:'DoD',sNaturalReentry:'自然落下',sFccDeadline:'FCC期限',sDeorbitDV:'デオービットΔV',sDragArea:'抗力面積',sUsed:'使用量',sHotPeak:'高温ケース',sColdMin:'低温ケース',sOpRange:'動作温度範囲',sDataRate:'データレート',sPassesDay:'パス/日',sDailyDL:'日次DL',sGS:'地上局',sAvgPass:'平均パス',sBand:'バンド',sMod:'変調',
+gSunlit:'日照',gEclipse:'日陰',gEnvelope:'エンベロープ',
+massSubs:['構造','電力系','ペイロード','ADCS','OBC','通信','熱制御','ハーネス'],
+gMargin:'マージン',gDbMargin:'dBマージン',gReentry:'再突入',gStatus:'状態',
+tMissionType:'ミッションタイプ',tOrbit:'軌道',tDesignLife:'設計寿命',tTotalMass:'総質量',tEnvelope:'エンベロープ',tStatus:'判定',
+bestMatch:'#1 最適',tMission:'ミッション',tBudget:'バジェット解析',tLaunchVehicle:'打上げロケット',tRecommended:'推奨',tPayloadMargin:'ペイロードマージン',tComplete:'ミッション設計完了。'},
+zh:{pageTitle:'任务<span>设计器</span>',pageSub:'定义任务、配置卫星、分析可行性、寻找运载火箭、查看设计报告。',
+stepMission:'任务',stepConfig:'配置',stepAnalysis:'分析',stepLaunch:'发射',stepSummary:'总结',
+btnConfigure:'配置卫星 →',btnBackMission:'← 任务',btnRunAnalysis:'运行分析 →',btnBackConfig:'← 配置',btnFindLaunch:'搜索火箭 →',btnBackAnalysis:'← 分析',btnViewSummary:'查看总结 →',btnBackLaunch:'← 发射',btnNewDesign:'新建设计 ↻',
+panelOrbit:'轨道',panelBus:'平台',panelComms:'通信',panelPayload:'载荷',
+lblOrbitType:'轨道类型',lblAltitude:'轨道高度',lblInclination:'轨道倾角',lblEccentricity:'离心率',
+lblTotalMass:'总质量',lblSolarPanels:'太阳能板面积',lblBattery:'电池容量',lblDesignLife:'设计寿命',
+lblDownlink:'下行频段',lblTxPower:'发射功率',lblAntGain:'天线增益',lblGroundStation:'地面站',lblGT:'G/T',
+lblPayloadMass:'载荷质量',lblPeakPower:'峰值功率',lblDutyCycle:'占空比',lblDataRate:'数据速率',
+filterAll:'全部',filterRideshare:'搭载',filterDedicated:'专用',filterSSO:'SSO兼容',
+rankNote:'按载荷余量排序。优先显示可搭载发射的运载火箭。',
+mName:['光学对地观测','合成孔径雷达','物联网通信','船舶与航空追踪','技术验证','科学观测','通信中继'],
+mDesc:['高分辨率地球成像 — 测绘、农业、灾害响应','全天候雷达成像、地表形变、海洋监视','传感器数据采集、资产追踪、环境监测','船舶追踪、航空器监视、海域态势感知','新组件验证、在轨测试、鉴定飞行','空间环境、日球物理、天文、磁层研究','宽带、存储转发、应急通信'],
+aPower:'功率预算',aLink:'链路预算',aDecay:'轨道衰减',aMass:'质量预算',aThermal:'热设计',
+go:'通过',warn:'警告',nogo:'不通过',
+sGeneration:'发电量',sConsumption:'消耗',sMargin:'余量',sDod:'DoD',sNaturalReentry:'自然再入',sFccDeadline:'FCC期限',sDeorbitDV:'离轨ΔV',sDragArea:'阻力面积',sUsed:'已用',sHotPeak:'高温峰值',sColdMin:'低温最小',sOpRange:'工作范围',sDataRate:'数据速率',sPassesDay:'过境/天',sDailyDL:'日下载',sGS:'地面站',sAvgPass:'平均过境',sBand:'频段',sMod:'调制',
+gSunlit:'日照',gEclipse:'阴影',gEnvelope:'包络',
+massSubs:['结构','电源','载荷','ADCS','OBC','通信','热控','线束'],
+gMargin:'余量',gDbMargin:'dB余量',gReentry:'再入',gStatus:'状态',
+tMissionType:'任务类型',tOrbit:'轨道',tDesignLife:'设计寿命',tTotalMass:'总质量',tEnvelope:'包络',tStatus:'判定',
+bestMatch:'#1 最佳匹配',tMission:'任务',tBudget:'预算分析',tLaunchVehicle:'运载火箭',tRecommended:'推荐',tPayloadMargin:'载荷余量',tComplete:'任务设计完成。'},
+es:{pageTitle:'DISEÑADOR DE <span>MISIONES</span>',pageSub:'Define tu misión, configura el satélite, analiza la viabilidad, encuentra un vehículo de lanzamiento y revisa el diseño completo.',
+stepMission:'Misión',stepConfig:'Config.',stepAnalysis:'Análisis',stepLaunch:'Lanzam.',stepSummary:'Resumen',
+btnConfigure:'CONFIGURAR SATÉLITE →',btnBackMission:'← MISIÓN',btnRunAnalysis:'EJECUTAR ANÁLISIS →',btnBackConfig:'← CONFIG.',btnFindLaunch:'BUSCAR LANZADOR →',btnBackAnalysis:'← ANÁLISIS',btnViewSummary:'VER RESUMEN →',btnBackLaunch:'← LANZAM.',btnNewDesign:'NUEVO DISEÑO ↻',
+panelOrbit:'ÓRBITA',panelBus:'PLATAFORMA',panelComms:'COMUNICACIONES',panelPayload:'CARGA ÚTIL',
+lblOrbitType:'Tipo de órbita',lblAltitude:'Altitud',lblInclination:'Inclinación',lblEccentricity:'Excentricidad',
+lblTotalMass:'Masa total',lblSolarPanels:'Paneles solares',lblBattery:'Batería',lblDesignLife:'Vida útil',
+lblDownlink:'Banda de bajada',lblTxPower:'Potencia TX',lblAntGain:'Ganancia ant.',lblGroundStation:'Estación terrena',lblGT:'G/T',
+lblPayloadMass:'Masa de carga',lblPeakPower:'Potencia pico',lblDutyCycle:'Ciclo de trabajo',lblDataRate:'Tasa de datos',
+filterAll:'Todos',filterRideshare:'Compartido',filterDedicated:'Dedicado',filterSSO:'SSO',
+rankNote:'Ordenado por margen de carga útil. Se priorizan vehículos con opción de lanzamiento compartido.',
+mName:['Observación óptica','Radar SAR','Comunicación IoT','Seguimiento marítimo/aéreo','Demo tecnológica','Observación científica','Retransmisión'],
+mDesc:['Imágenes terrestres de alta resolución — cartografía, agricultura, respuesta a desastres','Imágenes radar todo clima, deformación del terreno, vigilancia marítima','Recopilación de datos de sensores, seguimiento de activos, monitoreo ambiental','Seguimiento de buques, vigilancia aérea, conciencia del dominio marítimo','Validación de nuevos componentes, pruebas en órbita, vuelos de calificación','Entorno espacial, heliofísica, astronomía, estudios de la magnetosfera','Banda ancha, almacenamiento y reenvío, comunicaciones de emergencia'],
+aPower:'PRESUPUESTO ENERGÉTICO',aLink:'PRESUPUESTO DE ENLACE',aDecay:'DECAIMIENTO ORBITAL',aMass:'PRESUPUESTO DE MASA',aThermal:'DISEÑO TÉRMICO',
+go:'APTO',warn:'ALERTA',nogo:'NO APTO',
+sGeneration:'Generación',sConsumption:'Consumo',sMargin:'Margen',sDod:'DoD',sNaturalReentry:'Reentrada natural',sFccDeadline:'Plazo FCC',sDeorbitDV:'ΔV desorbit.',sDragArea:'Área de arrastre',sUsed:'Usado',sHotPeak:'Pico caliente',sColdMin:'Mín. frío',sOpRange:'Rango op.',sDataRate:'Tasa datos',sPassesDay:'Pasadas/día',sDailyDL:'DL diario',sGS:'Estación',sAvgPass:'Pasada prom.',sBand:'Banda',sMod:'Modulación',
+gSunlit:'Iluminado',gEclipse:'Eclipse',gEnvelope:'ENVOLVENTE',
+massSubs:['Estructura','Energía','Carga útil','ADCS','OBC','Comunic.','Térmico','Cableado'],
+gMargin:'MARGEN',gDbMargin:'MARGEN dB',gReentry:'REENTRADA',gStatus:'ESTADO',
+tMissionType:'Tipo de misión',tOrbit:'Órbita',tDesignLife:'Vida útil',tTotalMass:'Masa total',tEnvelope:'Envolvente',tStatus:'Estado',
+bestMatch:'#1 MEJOR OPCIÓN',tMission:'MISIÓN',tBudget:'ANÁLISIS DE PRESUPUESTO',tLaunchVehicle:'VEHÍCULO DE LANZAMIENTO',tRecommended:'Recomendado',tPayloadMargin:'Margen de carga',tComplete:'Diseño de misión completo.'}
+};
+function T(k){return (L[curLang]&&L[curLang][k])||L.en[k]||k;}
+function applyI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const k=el.dataset.i18n, v=T(k);
+    if(v){if(v.includes('<'))el.innerHTML=v;else el.textContent=v;}
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{
+    const k=el.dataset.i18nHtml, v=T(k);
+    if(v){const btn=el.querySelector('.help-btn');el.textContent=v;if(btn)el.appendChild(document.createTextNode(' ')),el.appendChild(btn);}
+  });
+  renderMissions();
+  if(currentStep===3&&analysisResults.power)renderAnalysis(getParams());
+  if(currentStep===4)renderRockets();
+}
+// Lang selector
+document.getElementById('lang-current').addEventListener('click',function(){document.getElementById('lang-dropdown').classList.toggle('open');});
+document.querySelectorAll('#lang-dropdown .lang-option').forEach(opt=>{
+  opt.addEventListener('click',function(){
+    curLang=this.dataset.lang;
+    document.querySelectorAll('#lang-dropdown .lang-option').forEach(o=>o.classList.remove('active'));
+    this.classList.add('active');
+    document.getElementById('lang-current').textContent=curLang.toUpperCase();
+    document.getElementById('lang-dropdown').classList.remove('open');
+    applyI18n();
+  });
+});
+document.addEventListener('click',function(e){if(!e.target.closest('.lang-selector'))document.getElementById('lang-dropdown').classList.remove('open');});
+
+// === HELP TOOLTIPS ===
+const HELP = {
+  altitude:{
+    en:{t:'Altitude',d:'Orbital altitude above Earth\'s surface. Lower orbits (300-500 km) have higher drag and shorter lifetimes. Higher orbits (600+ km) last longer but increase link distance.'},
+    ja:{t:'高度',d:'地球表面からの軌道高度。低軌道（300-500 km）は大気抵抗が大きく寿命が短い。高軌道（600+ km）は長寿命だが通信距離が増加します。'},
+    zh:{t:'轨道高度',d:'卫星距地球表面的轨道高度。低轨道（300-500 km）大气阻力大、寿命短。高轨道（600+ km）寿命长但通信距离增加。'},
+    es:{t:'Altitud',d:'Altitud orbital sobre la superficie terrestre. Las órbitas bajas (300-500 km) tienen más resistencia y menor vida útil. Las órbitas altas (600+ km) duran más pero aumentan la distancia de enlace.'}},
+  inclination:{
+    en:{t:'Inclination',d:'Angle between orbit plane and equator. ~97° = Sun-synchronous orbit (SSO), maintaining consistent solar illumination. 51.6° = ISS orbit. Higher inclinations cover more of Earth\'s surface.'},
+    ja:{t:'軌道傾斜角',d:'軌道面と赤道面の角度。~97° = 太陽同期軌道（SSO）で一定の太陽照射を維持。51.6° = ISS軌道。傾斜角が大きいほど地球のカバー範囲が広がります。'},
+    zh:{t:'轨道倾角',d:'轨道平面与赤道的夹角。~97° = 太阳同步轨道（SSO），保持一致的太阳光照。51.6° = ISS轨道。更高的倾角覆盖更多地球表面。'},
+    es:{t:'Inclinación',d:'Ángulo entre el plano orbital y el ecuador. ~97° = órbita heliosincrónica (SSO), mantiene iluminación solar constante. 51.6° = órbita de la ISS. Mayor inclinación cubre más superficie terrestre.'}},
+  eccentricity:{
+    en:{t:'Eccentricity',d:'Orbit shape: 0 = perfect circle, approaching 1 = highly elliptical. Most LEO missions use near-circular orbits (e < 0.01). HEO like Molniya uses e ≈ 0.7.'},
+    ja:{t:'離心率',d:'軌道の形状。0 = 真円、1に近づくと楕円。ほとんどのLEOミッションは準円軌道（e < 0.01）を使用。モルニア軌道のようなHEOではe ≈ 0.7。'},
+    zh:{t:'离心率',d:'轨道形状：0 = 正圆，接近1 = 高椭圆。大多数LEO任务使用近圆轨道（e < 0.01）。莫尔尼亚型HEO使用e ≈ 0.7。'},
+    es:{t:'Excentricidad',d:'Forma orbital: 0 = círculo perfecto, cercano a 1 = muy elíptico. La mayoría de misiones LEO usan órbitas casi circulares (e < 0.01). HEO tipo Molniya usa e ≈ 0.7.'}},
+  solarArea:{
+    en:{t:'Solar Panel Area',d:'Total deployed solar array area. Determines power generation capacity. GaAs triple-junction cells achieve ~30% efficiency. Larger arrays = more power but more mass and drag.'},
+    ja:{t:'太陽電池面積',d:'展開後の太陽電池アレイ総面積。発電能力を決定。GaAs三接合セルは約30%の変換効率。面積が大きいほど発電量は増えるが質量と抗力も増加。'},
+    zh:{t:'太阳能板面积',d:'展开后太阳能电池阵总面积，决定发电能力。GaAs三结电池效率约30%。面积越大发电越多，但质量和阻力也增加。'},
+    es:{t:'Área de paneles',d:'Área total del panel solar desplegado. Determina la capacidad de generación. Celdas GaAs de triple unión alcanzan ~30% de eficiencia. Mayor área = más energía pero más masa y resistencia.'}},
+  battery:{
+    en:{t:'Battery Capacity',d:'Energy storage in Watt-hours. Must sustain the satellite through eclipse periods when solar panels produce no power. Li-ion batteries: ~150 Wh/kg specific energy.'},
+    ja:{t:'バッテリー容量',d:'ワット時（Wh）単位のエネルギー貯蔵容量。太陽電池が発電できない日陰期間中に衛星を維持。リチウムイオン電池の比エネルギーは約150 Wh/kg。'},
+    zh:{t:'电池容量',d:'以瓦时为单位的储能容量。在日食期间太阳能板无法发电时维持卫星运行。锂离子电池比能量约150 Wh/kg。'},
+    es:{t:'Capacidad de batería',d:'Almacenamiento de energía en vatios-hora. Debe mantener el satélite durante los eclipses cuando los paneles no generan energía. Baterías Li-ion: ~150 Wh/kg de energía específica.'}},
+  txPower:{
+    en:{t:'TX Power',d:'Transmitter output power in Watts. Higher power improves link margin but increases power consumption. Typical: 2W (UHF), 5W (S-band), 10W (X-band), 25W (Ka-band).'},
+    ja:{t:'送信電力',d:'送信機の出力電力（W）。高出力はリンクマージンを改善するが消費電力が増加。典型値: 2W (UHF), 5W (S), 10W (X), 25W (Ka)。'},
+    zh:{t:'发射功率',d:'发射机输出功率（瓦）。功率越高链路余量越大，但功耗增加。典型值：2W (UHF), 5W (S), 10W (X), 25W (Ka)。'},
+    es:{t:'Potencia TX',d:'Potencia de salida del transmisor en vatios. Mayor potencia mejora el margen de enlace pero aumenta el consumo. Típico: 2W (UHF), 5W (S), 10W (X), 25W (Ka).'}},
+  antennaGain:{
+    en:{t:'Antenna Gain',d:'Antenna directivity in dBi. Higher gain = narrower beam = more signal strength but requires better pointing. Typical: 3 dBi (UHF patch), 18 dBi (X-band parabolic), 30 dBi (Ka-band).'},
+    ja:{t:'アンテナゲイン',d:'アンテナの指向性（dBi）。高ゲイン = 狭ビーム = 強い信号だが高精度の姿勢制御が必要。典型値: 3 dBi (UHFパッチ), 18 dBi (Xバンドパラボラ), 30 dBi (Ka)。'},
+    zh:{t:'天线增益',d:'天线方向性（dBi）。增益越高 = 波束越窄 = 信号越强，但需要更好的指向精度。典型值：3 dBi (UHF贴片), 18 dBi (X波段抛物面), 30 dBi (Ka)。'},
+    es:{t:'Ganancia de antena',d:'Directividad de la antena en dBi. Mayor ganancia = haz más estrecho = más señal pero requiere mejor apuntamiento. Típico: 3 dBi (UHF parche), 18 dBi (X parabólica), 30 dBi (Ka).'}},
+  gt:{
+    en:{t:'G/T (Figure of Merit)',d:'Ground station receive sensitivity: antenna gain minus system noise temperature, in dB/K. Higher G/T = better reception. Svalbard (28 dB/K) is one of the best LEO ground stations.'},
+    ja:{t:'G/T（性能指数）',d:'地上局の受信感度: アンテナゲインからシステム雑音温度を引いた値（dB/K）。G/Tが高いほど受信性能が良い。スヴァールバル（28 dB/K）はLEO局で最高水準。'},
+    zh:{t:'G/T（品质因数）',d:'地面站接收灵敏度：天线增益减去系统噪声温度（dB/K）。G/T越高接收越好。斯瓦尔巴（28 dB/K）是最好的LEO地面站之一。'},
+    es:{t:'G/T (Figura de mérito)',d:'Sensibilidad de recepción de la estación: ganancia de antena menos temperatura de ruido del sistema, en dB/K. Mayor G/T = mejor recepción. Svalbard (28 dB/K) es una de las mejores estaciones LEO.'}},
+  dutyCycle:{
+    en:{t:'Duty Cycle',d:'Percentage of orbit time the payload is actively operating. Higher duty cycle = more data collected but more power consumed. Optical EO: ~30% (daylight + cloud-free only). IoT: up to 80%.'},
+    ja:{t:'デューティ比',d:'ペイロードが稼働している軌道周期中の割合（%）。高いほどデータ取得量が増えるが消費電力も増加。光学EO: ~30%（昼間+晴天時のみ）。IoT: 最大80%。'},
+    zh:{t:'占空比',d:'载荷在轨道周期中工作的时间百分比。占空比越高数据采集越多但功耗越大。光学EO：~30%（仅白天+无云）。IoT：最高80%。'},
+    es:{t:'Ciclo de trabajo',d:'Porcentaje del tiempo orbital en que la carga útil está activa. Mayor ciclo = más datos pero más consumo. EO óptica: ~30% (solo luz diurna + sin nubes). IoT: hasta 80%.'}},
+  dod:{
+    en:{t:'Depth of Discharge (DoD)',d:'Percentage of battery capacity used during each eclipse. Li-ion batteries degrade faster above 30% DoD. Keeping DoD below 25% can double battery cycle life.'},
+    ja:{t:'放電深度（DoD）',d:'各日陰期間にバッテリー容量の何%を使用するか。リチウムイオン電池はDoD 30%超で劣化が加速。25%以下に抑えるとサイクル寿命が約2倍に。'},
+    zh:{t:'放电深度（DoD）',d:'每次日食期间使用的电池容量百分比。锂离子电池在DoD超过30%时加速退化。将DoD保持在25%以下可使循环寿命翻倍。'},
+    es:{t:'Profundidad de descarga (DoD)',d:'Porcentaje de capacidad de batería usado en cada eclipse. Las baterías Li-ion se degradan más rápido por encima del 30% DoD. Mantener DoD bajo 25% puede duplicar la vida útil.'}},
+  linkMargin:{
+    en:{t:'Link Margin',d:'Safety margin between received signal strength and minimum required. ≥3 dB = robust link. 1-3 dB = marginal. <1 dB = unreliable. Accounts for atmospheric loss, pointing errors, and rain fade.'},
+    ja:{t:'リンクマージン',d:'受信信号強度と最低要件の差（安全余裕）。≥3 dB = 堅牢。1-3 dB = 限界的。<1 dB = 不安定。大気損失、指向誤差、降雨減衰を考慮。'},
+    zh:{t:'链路余量',d:'接收信号强度与最低要求之间的安全余量。≥3 dB = 可靠链路。1-3 dB = 边缘。<1 dB = 不可靠。考虑大气损耗、指向误差和雨衰。'},
+    es:{t:'Margen de enlace',d:'Margen de seguridad entre la señal recibida y el mínimo requerido. ≥3 dB = enlace robusto. 1-3 dB = marginal. <1 dB = no fiable. Incluye pérdida atmosférica, errores de apuntamiento y atenuación por lluvia.'}},
+  fcc5yr:{
+    en:{t:'FCC 5-Year Disposal Rule',d:'FCC requires deorbit within 5 years after mission end (47 CFR §25.283, eff. Sept 2024). With a 5-year design life, the absolute deadline is year 10. If natural decay exceeds this, active deorbit propulsion (ΔV) is required.'},
+    ja:{t:'FCC 5年廃棄規則',d:'FCCはミッション終了後5年以内のデオービットを義務付け（47 CFR §25.283、2024年9月施行）。設計寿命5年なら絶対期限は10年目。自然減衰が超える場合、能動的なデオービット推進（ΔV）が必要。'},
+    zh:{t:'FCC 5年处置规则',d:'FCC要求任务结束后5年内离轨（47 CFR §25.283，2024年9月生效）。设计寿命5年则绝对期限为第10年。如自然衰减超过此期限，需要主动离轨推进（ΔV）。'},
+    es:{t:'Regla FCC de 5 años',d:'La FCC exige la desorbitación dentro de 5 años tras el fin de misión (47 CFR §25.283, vigente desde sept. 2024). Con vida útil de 5 años, el plazo absoluto es el año 10. Si el decaimiento natural lo excede, se requiere propulsión activa (ΔV).'}},
+  dragCd:{
+    en:{t:'Drag Coefficient (Cd)',d:'Aerodynamic drag coefficient in residual atmosphere. Cd ≈ 2.2 is standard for satellites in free molecular flow regime at LEO altitudes.'},
+    ja:{t:'抗力係数（Cd）',d:'残存大気中の空力抗力係数。Cd ≈ 2.2がLEO高度の自由分子流領域における衛星の標準値。'},
+    zh:{t:'阻力系数（Cd）',d:'残余大气中的气动阻力系数。Cd ≈ 2.2是LEO高度自由分子流状态下卫星的标准值。'},
+    es:{t:'Coeficiente de arrastre (Cd)',d:'Coeficiente de arrastre aerodinámico en la atmósfera residual. Cd ≈ 2.2 es estándar para satélites en régimen de flujo molecular libre en altitudes LEO.'}},
+  alphaEps:{
+    en:{t:'α/ε (Absorptance / Emissivity)',d:'Solar absorptance (α) = fraction of sunlight absorbed. IR emissivity (ε) = efficiency of thermal radiation. White paint: α=0.2/ε=0.9. Solar cells: α=0.8/ε=0.8. MLI: α=0.1/ε=0.02.'},
+    ja:{t:'α/ε（吸収率/放射率）',d:'太陽光吸収率（α）= 吸収される太陽光の割合。赤外放射率（ε）= 熱放射の効率。白色塗料: α=0.2/ε=0.9。太陽電池: α=0.8/ε=0.8。MLI: α=0.1/ε=0.02。'},
+    zh:{t:'α/ε（吸收率/发射率）',d:'太阳吸收率（α）= 吸收的太阳光比例。红外发射率（ε）= 热辐射效率。白漆：α=0.2/ε=0.9。太阳能电池：α=0.8/ε=0.8。MLI：α=0.1/ε=0.02。'},
+    es:{t:'α/ε (Absortancia / Emisividad)',d:'Absortancia solar (α) = fracción de luz solar absorbida. Emisividad IR (ε) = eficiencia de radiación térmica. Pintura blanca: α=0.2/ε=0.9. Celdas solares: α=0.8/ε=0.8. MLI: α=0.1/ε=0.02.'}},
+};
+
+let activeHelp = null;
+document.addEventListener('click', function(e) {
+  if (activeHelp) { activeHelp.remove(); activeHelp = null; }
+  const btn = e.target.closest('.help-btn');
+  if (!btn) return;
+  e.stopPropagation();
+  const key = btn.dataset.help;
+  const hAll = HELP[key]; if (!hAll) return;
+  const h = hAll[curLang] || hAll.en;
+  const tip = document.createElement('div');
+  tip.className = 'help-tip';
+  tip.innerHTML = `<div class="ht-title">${h.t}</div>${h.d}`;
+  document.body.appendChild(tip);
+  const r = btn.getBoundingClientRect();
+  let top = r.bottom + 8, left = r.left - 60;
+  if (left < 12) left = 12;
+  if (left + 280 > window.innerWidth) left = window.innerWidth - 292;
+  if (top + 150 > window.innerHeight) top = r.top - 8 - tip.offsetHeight;
+  tip.style.top = Math.max(8, top) + 'px';
+  tip.style.left = left + 'px';
+  activeHelp = tip;
+});
+
+const GS = [
+  {name:'Svalbard (SvalSat)',lat:78.2,lon:15.4,ant:'10m',gt:28},
+  {name:'Troll (KSAT)',lat:-72.0,lon:2.5,ant:'7.5m',gt:25},
+  {name:'Fairbanks',lat:64.9,lon:-147.5,ant:'11m',gt:30},
+  {name:'Hawaii (KSAT)',lat:19.5,lon:-155.5,ant:'7.5m',gt:25},
+  {name:'Tokyo (Univ.)',lat:35.7,lon:139.7,ant:'3m',gt:15},
+  {name:'Inuvik (KSAT)',lat:68.4,lon:-133.7,ant:'9m',gt:27},
+  {name:'Punta Arenas (KSAT)',lat:-53.1,lon:-70.9,ant:'7.5m',gt:25},
+  {name:'Singapore',lat:1.3,lon:103.8,ant:'5m',gt:20},
+  {name:'Weilheim (DLR)',lat:47.9,lon:11.1,ant:'9m',gt:27},
+  {name:'Hartebeesthoek (SANSA)',lat:-25.9,lon:27.7,ant:'10m',gt:28},
+];
+const BANDS={UHF:0.4,S:2.2,X:8.2,Ka:26.5};
+const BAND_ATM_LOSS={UHF:0.5,S:0.8,X:1.5,Ka:4.0};
+const BAND_DEFAULTS={UHF:{txPower:2,antennaGain:3},S:{txPower:5,antennaGain:8},X:{txPower:10,antennaGain:18},Ka:{txPower:25,antennaGain:30}};
+const ORBIT_DEFAULTS={SSO:{alt:550,inc:97.4,ecc:1,preset:'SSO recommended: 500–700 km'},LEO:{alt:500,inc:51.6,ecc:1,preset:'LEO typical: 300–600 km'},MEO:{alt:1200,inc:55,ecc:1,preset:'MEO typical: 1000–2000 km'},HEO:{alt:500,inc:63.4,ecc:700,preset:'HEO (Molniya-type): e≈0.7'}};
+const MISSIONS=[
+  {id:0,name:'OPTICAL EO',desc:'High-resolution Earth imaging for mapping, agriculture, disaster response',massRange:'50–500 kg',orbitTag:'SSO 400–700 km',mass:120,alt:550,inc:97.4,orbitType:'SSO',ecc:0.001,solarArea:4.0,battery:240,designLife:5,band:'X',txPower:10,antennaGain:18,gs:0,payloadMass:35,payloadPower:60,dutyCycle:30,dataRate:150,busStandby:30,structFrac:0.25,avgDensity:500,aspect:[1.3,1.0,0.8],thetaAvg:23,adcsMass:5,obcMass:2,fRad:0.30,icon:'<circle cx="18" cy="18" r="14" stroke="rgba(0,229,255,0.4)" stroke-width="1"/><rect x="12" y="12" width="12" height="12" rx="2" stroke="#00e5ff" stroke-width="1.2" fill="none"/><line x1="18" y1="6" x2="18" y2="12" stroke="rgba(0,229,255,0.3)" stroke-width="0.8"/>'},
+  {id:1,name:'SAR',desc:'All-weather radar imaging, surface deformation, maritime surveillance',massRange:'100–500 kg',orbitTag:'SSO 500–700 km',mass:350,alt:620,inc:97.8,orbitType:'SSO',ecc:0.001,solarArea:8.0,battery:600,designLife:7,band:'X',txPower:20,antennaGain:25,gs:0,payloadMass:100,payloadPower:150,dutyCycle:20,dataRate:300,busStandby:50,structFrac:0.28,avgDensity:400,aspect:[1.0,1.0,0.9],thetaAvg:23,adcsMass:12,obcMass:4,fRad:0.28,icon:'<circle cx="18" cy="18" r="14" stroke="rgba(0,229,255,0.4)" stroke-width="1"/><path d="M10 22L18 10L26 22" stroke="#00e5ff" stroke-width="1.2" fill="none"/><line x1="10" y1="22" x2="26" y2="22" stroke="#00e5ff" stroke-width="1.2"/>'},
+  {id:2,name:'IoT / M2M',desc:'Sensor data collection, asset tracking, environmental monitoring',massRange:'5–50 kg',orbitTag:'LEO 500–600 km',mass:12,alt:520,inc:52,orbitType:'LEO',ecc:0.001,solarArea:0.3,battery:30,designLife:3,band:'UHF',txPower:2,antennaGain:3,gs:3,payloadMass:2,payloadPower:5,dutyCycle:50,dataRate:1,busStandby:5,structFrac:0.20,avgDensity:1300,aspect:[1.0,1.0,3.0],thetaAvg:30,adcsMass:1,obcMass:0.5,fRad:0.45,icon:'<circle cx="18" cy="18" r="14" stroke="rgba(0,229,255,0.4)" stroke-width="1"/><circle cx="18" cy="18" r="4" stroke="#00e5ff" stroke-width="1.2" fill="none"/><line x1="18" y1="8" x2="18" y2="14" stroke="#00e5ff" stroke-width="0.8"/><line x1="18" y1="22" x2="18" y2="28" stroke="#00e5ff" stroke-width="0.8"/><line x1="8" y1="18" x2="14" y2="18" stroke="#00e5ff" stroke-width="0.8"/><line x1="22" y1="18" x2="28" y2="18" stroke="#00e5ff" stroke-width="0.8"/>'},
+  {id:3,name:'AIS / ADS-B',desc:'Ship tracking, aircraft surveillance, maritime domain awareness',massRange:'5–30 kg',orbitTag:'LEO 500–650 km',mass:8,alt:580,inc:97.6,orbitType:'LEO',ecc:0.001,solarArea:0.2,battery:20,designLife:3,band:'UHF',txPower:1,antennaGain:2,gs:0,payloadMass:1.5,payloadPower:3,dutyCycle:80,dataRate:0.5,busStandby:3,structFrac:0.20,avgDensity:1300,aspect:[1.0,1.0,3.0],thetaAvg:23,adcsMass:0.5,obcMass:0.5,fRad:0.50,icon:'<circle cx="18" cy="18" r="14" stroke="rgba(0,229,255,0.4)" stroke-width="1"/><path d="M12 24C12 24 14 14 18 14C22 14 24 24 24 24" stroke="#00e5ff" stroke-width="1.2" fill="none"/><circle cx="18" cy="12" r="2" stroke="#00e5ff" stroke-width="1" fill="none"/>'},
+  {id:4,name:'TECH DEMO',desc:'New component validation, in-orbit testing, qualification flights',massRange:'1–100 kg',orbitTag:'LEO 300–600 km',mass:50,alt:400,inc:51.6,orbitType:'LEO',ecc:0.001,solarArea:1.5,battery:80,designLife:2,band:'S',txPower:5,antennaGain:8,gs:2,payloadMass:15,payloadPower:30,dutyCycle:25,dataRate:10,busStandby:15,structFrac:0.22,avgDensity:600,aspect:[1.0,1.0,1.0],thetaAvg:30,adcsMass:3,obcMass:1,fRad:0.35,icon:'<circle cx="18" cy="18" r="14" stroke="rgba(0,229,255,0.4)" stroke-width="1"/><rect x="13" y="13" width="10" height="10" rx="1" stroke="#00e5ff" stroke-width="1.2" fill="none"/><line x1="15" y1="16" x2="21" y2="16" stroke="rgba(0,229,255,0.5)" stroke-width="0.8"/><line x1="15" y1="19" x2="21" y2="19" stroke="rgba(0,229,255,0.5)" stroke-width="0.8"/>'},
+  {id:5,name:'SCIENCE',desc:'Space environment, heliophysics, astronomy, magnetosphere studies',massRange:'10–300 kg',orbitTag:'Various orbits',mass:180,alt:600,inc:65,orbitType:'LEO',ecc:0.001,solarArea:5.0,battery:400,designLife:5,band:'X',txPower:12,antennaGain:20,gs:2,payloadMass:50,payloadPower:80,dutyCycle:40,dataRate:100,busStandby:35,structFrac:0.25,avgDensity:450,aspect:[1.2,1.0,0.9],thetaAvg:30,adcsMass:8,obcMass:3,fRad:0.30,icon:'<circle cx="18" cy="18" r="14" stroke="rgba(0,229,255,0.4)" stroke-width="1"/><circle cx="18" cy="16" r="5" stroke="#00e5ff" stroke-width="1.2" fill="none"/><path d="M13 26C13 23 15.5 21 18 21C20.5 21 23 23 23 26" stroke="#00e5ff" stroke-width="1.2" fill="none"/>'},
+  {id:6,name:'COMMS RELAY',desc:'Broadband, store-and-forward, emergency communications',massRange:'50–500 kg',orbitTag:'LEO/MEO',mass:250,alt:1200,inc:55,orbitType:'MEO',ecc:0.001,solarArea:6.0,battery:500,designLife:7,band:'Ka',txPower:25,antennaGain:30,gs:3,payloadMass:60,payloadPower:100,dutyCycle:60,dataRate:500,busStandby:45,structFrac:0.26,avgDensity:400,aspect:[1.0,1.0,0.8],thetaAvg:25,adcsMass:10,obcMass:3,fRad:0.28,icon:'<circle cx="18" cy="18" r="14" stroke="rgba(0,229,255,0.4)" stroke-width="1"/><ellipse cx="18" cy="18" rx="10" ry="4" stroke="#00e5ff" stroke-width="1.2" fill="none"/><ellipse cx="18" cy="18" rx="10" ry="4" stroke="rgba(0,229,255,0.4)" stroke-width="0.8" transform="rotate(60 18 18)" fill="none"/>'},
+];
+const COMMS_MASS={UHF:0.5,S:3,X:5,Ka:8};
+const ROCKETS=[
+  {name:'Falcon 9',provider:'SpaceX',country:'USA',leo:22800,sso:15800,rideshare:true,ssoCapable:true,success:0.99},
+  {name:'Falcon Heavy',provider:'SpaceX',country:'USA',leo:63800,sso:null,rideshare:true,ssoCapable:false,success:1.0},
+  {name:'PSLV-XL',provider:'ISRO',country:'India',leo:3800,sso:1750,rideshare:true,ssoCapable:true,success:0.95},
+  {name:'Vega-C',provider:'Arianespace',country:'Europe',leo:2350,sso:2200,rideshare:true,ssoCapable:true,success:0.90},
+  {name:'Electron',provider:'Rocket Lab',country:'NZ/USA',leo:300,sso:200,rideshare:false,ssoCapable:true,success:0.93},
+  {name:'Epsilon S',provider:'JAXA',country:'Japan',leo:1500,sso:600,rideshare:false,ssoCapable:true,success:0.95},
+  {name:'Long March 2D',provider:'CASC',country:'China',leo:3500,sso:1300,rideshare:true,ssoCapable:true,success:0.97},
+  {name:'Soyuz-2.1b',provider:'Roscosmos',country:'Russia',leo:8200,sso:4900,rideshare:true,ssoCapable:true,success:0.97},
+  {name:'H3',provider:'JAXA/MHI',country:'Japan',leo:6500,sso:4000,rideshare:true,ssoCapable:true,success:0.85},
+  {name:'LauncherOne',provider:'Virgin Orbit',country:'USA',leo:500,sso:300,rideshare:false,ssoCapable:true,success:0.67},
+];
+// NRLMSISE-00 representative densities (F10.7≈135 sfu, Ap=15, moderate solar activity)
+const ATMOS=[{h:200,H:30.3,rho0:2.5e-10},{h:300,H:38.2,rho0:1.3e-11},{h:400,H:46.5,rho0:2.0e-12},{h:500,H:55.5,rho0:4.0e-13},{h:600,H:64.5,rho0:9.5e-14},{h:800,H:77.5,rho0:7.0e-15}];
+
+let selectedMission=0, currentStep=1, analysisResults={}, bestRocket=null;
+
+function goStep(n){
+  if(n===3)runAnalysis(); if(n===4)renderRockets(); if(n===5)runTerminal();
+  currentStep=n;
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('visible'));
+  document.getElementById('step'+n).classList.add('visible');
+  document.querySelectorAll('.step-dot').forEach((d,i)=>{d.classList.remove('active','done');if(i<n-1)d.classList.add('done');if(i===n-1)d.classList.add('active');});
+  window.scrollTo({top:0,behavior:'smooth'}); location.hash='#step'+n;
+}
+function renderMissions(){const mn=T('mName'),md=T('mDesc');document.getElementById('missionGrid').innerHTML=MISSIONS.map((m,i)=>`<div class="mission-card${i===selectedMission?' selected':''}" onclick="selectMission(${i})"><svg viewBox="0 0 36 36" fill="none" class="mission-icon">${m.icon}</svg><div class="mission-name">${mn[i]||m.name}</div><div class="mission-desc">${md[i]||m.desc}</div><div class="mission-meta"><span>${m.massRange}</span><span>${m.orbitTag}</span></div></div>`).join('');}
+function selectMission(i){selectedMission=i;document.querySelectorAll('.mission-card').forEach((c,j)=>c.classList.toggle('selected',j===i));applyMissionDefaults();}
+function applyMissionDefaults(){const m=MISSIONS[selectedMission];document.getElementById('cfg-orbitType').value=m.orbitType;setS('altitude',m.alt);setS('inclination',m.inc);setS('eccentricity',Math.round(m.ecc*1000));setS('mass',m.mass);setS('solarArea',Math.round(m.solarArea*10));setS('battery',m.battery);setS('designLife',m.designLife);document.getElementById('cfg-band').value=m.band;setS('txPower',m.txPower);setS('antennaGain',m.antennaGain);document.getElementById('cfg-gs').value=m.gs;updateGS();setS('payloadMass',m.payloadMass);setS('payloadPower',m.payloadPower);setS('dutyCycle',m.dutyCycle);setS('dataRate',m.dataRate);const od=ORBIT_DEFAULTS[m.orbitType];if(od)document.getElementById('preset-altitude').textContent=od.preset;upAll();}
+function setS(id,v){const e=document.getElementById('cfg-'+id);if(e)e.value=v;}
+function gV(id){return parseFloat(document.getElementById('cfg-'+id).value);}
+function upAll(){document.getElementById('val-altitude').textContent=gV('altitude');document.getElementById('val-inclination').textContent=gV('inclination').toFixed(1);document.getElementById('val-eccentricity').textContent=(gV('eccentricity')/1000).toFixed(3);document.getElementById('val-mass').textContent=gV('mass');document.getElementById('val-solarArea').textContent=(gV('solarArea')/10).toFixed(1);document.getElementById('val-battery').textContent=gV('battery');document.getElementById('val-designLife').textContent=gV('designLife');document.getElementById('val-txPower').textContent=gV('txPower');document.getElementById('val-antennaGain').textContent=gV('antennaGain');document.getElementById('val-payloadMass').textContent=gV('payloadMass');document.getElementById('val-payloadPower').textContent=gV('payloadPower');document.getElementById('val-dutyCycle').textContent=gV('dutyCycle');document.getElementById('val-dataRate').textContent=gV('dataRate');}
+function updateGS(){const gs=GS[parseInt(document.getElementById('cfg-gs').value)];document.getElementById('gs-info').textContent=`${gs.ant}, G/T ${gs.gt} dB/K`;}
+document.getElementById('cfg-orbitType').addEventListener('change',function(){const od=ORBIT_DEFAULTS[this.value];if(!od)return;setS('altitude',od.alt);setS('inclination',od.inc);setS('eccentricity',od.ecc);document.getElementById('preset-altitude').textContent=od.preset;upAll();});
+document.getElementById('cfg-band').addEventListener('change',function(){const bd=BAND_DEFAULTS[this.value];if(!bd)return;setS('txPower',bd.txPower);setS('antennaGain',bd.antennaGain);upAll();});
+document.querySelectorAll('.param-slider').forEach(s=>s.addEventListener('input',upAll));
+document.getElementById('cfg-gs').addEventListener('change',updateGS);
+
+function getParams(){const m=MISSIONS[selectedMission];return{alt:gV('altitude'),inc:gV('inclination'),ecc:gV('eccentricity')/1000,orbitType:document.getElementById('cfg-orbitType').value,mass:gV('mass'),solarArea:gV('solarArea')/10,battery:gV('battery'),designLife:gV('designLife'),band:document.getElementById('cfg-band').value,txPower:gV('txPower'),antennaGain:gV('antennaGain'),gs:parseInt(document.getElementById('cfg-gs').value),payloadMass:gV('payloadMass'),payloadPower:gV('payloadPower'),dutyCycle:gV('dutyCycle'),dataRate:gV('dataRate'),busStandby:m.busStandby,structFrac:m.structFrac,avgDensity:m.avgDensity,aspect:m.aspect,thetaAvg:m.thetaAvg,adcsMass:m.adcsMass,obcMass:m.obcMass,commsMassKey:document.getElementById('cfg-band').value,fRad:m.fRad};}
+
+// === ANALYSIS ===
+function runAnalysis(){
+  const p=getParams(), R={};
+  const a=K.Re+p.alt*1000, T=2*Math.PI*Math.sqrt(a*a*a/K.mu);
+  const rho_a=Math.asin(K.Re/a), t_ecl=T*rho_a/Math.PI, t_sun=T-t_ecl;
+
+  // Power
+  const P_gen=p.solarArea*K.S*0.30*Math.cos(p.thetaAvg*Math.PI/180)*Math.pow(0.975,p.designLife);
+  const P_avg=p.busStandby+p.payloadPower*p.dutyCycle/100;
+  const DoD=P_avg*t_ecl/3600/p.battery*100;
+  const pwM=(P_gen-P_avg)/P_avg*100;
+  const pwS=pwM<5||DoD>40?'nogo':pwM<15||DoD>30?'warn':'go';
+  R.power={P_gen,P_avg,DoD,margin:pwM,status:pwS,t_ecl,t_sun,T};
+
+  // Link
+  const gs=GS[p.gs], el=5*Math.PI/180, ak=p.alt+6371;
+  const sl=Math.sqrt((ak*Math.cos(el))**2+2*ak*p.alt+p.alt*p.alt)-ak*Math.sin(el);
+  const d=sl*1000, f=BANDS[p.band]*1e9;
+  const EIRP=10*Math.log10(p.txPower)+p.antennaGain;
+  const Lp=20*Math.log10(4*Math.PI*d*f/K.c), La=BAND_ATM_LOSS[p.band]||1.5;
+  const CN0r=EIRP+gs.gt-Lp-La-2-K.k_dB, CN0q=4.5+10*Math.log10(p.dataRate*1e6);
+  const lkM=CN0r-CN0q;
+  const agl=Math.abs(gs.lat);
+  const ppd=(p.orbitType==='SSO'&&agl>60)?7:(p.orbitType==='SSO'&&agl>30)?4:Math.abs(p.inc-agl)<30?5:3;
+  const apd=p.alt<400?480:p.alt<700?600:720;
+  const dvol=p.dataRate*1e6*ppd*apd/8/1e9;
+  R.link={margin:lkM,passesPerDay:ppd,dailyVolGB:dvol,status:lkM<1?'nogo':lkM<3?'warn':'go',gsName:gs.name};
+
+  // Orbit Decay — with curve data for graph
+  function getDen(h){if(h<=200)return ATMOS[0].rho0;if(h>=800)return ATMOS[5].rho0*Math.exp(-(h-800)/ATMOS[5].H);let lo,hi;for(let i=0;i<5;i++){if(h>=ATMOS[i].h&&h<ATMOS[i+1].h){lo=ATMOS[i];hi=ATMOS[i+1];break;}}if(!lo){lo=ATMOS[4];hi=ATMOS[5];}const fr=(h-lo.h)/(hi.h-lo.h);return Math.exp(Math.log(lo.rho0)+fr*(Math.log(hi.rho0)-Math.log(lo.rho0)));}
+  const Ad=Math.pow(p.mass/p.avgDensity,2/3);
+  // Natural decay simulation — store curve points every ~30 days
+  let hc=p.alt,dd=0;const decayCurve=[{yr:0,h:p.alt}];
+  while(hc>120&&dd<365*30){const rho=getDen(hc);const ac=K.Re+hc*1000;hc+=(-2*Math.PI*K.Cd*(Ad/p.mass)*rho*ac*ac)/1000*(86400/(2*Math.PI*Math.sqrt(ac**3/K.mu)));dd++;if(dd%30===0)decayCurve.push({yr:dd/365,h:Math.max(hc,120)});}
+  if(dd%30!==0)decayCurve.push({yr:dd/365,h:Math.max(hc,120)});
+  const dy=dd/365,fl=p.designLife+5,nd=dy>fl;let dv=0;
+  if(nd){const r=K.Re+p.alt*1000;dv=Math.sqrt(K.mu/r)*(1-Math.sqrt(2*(K.Re+120000)/(r+K.Re+120000)));}
+  // Active deorbit curve: nominal until design life end, then rapid drop
+  const activeDecayCurve=[{yr:0,h:p.alt}];
+  {let h2=p.alt,d2=0;while(h2>120&&d2<p.designLife*365){const rho=getDen(h2);const ac=K.Re+h2*1000;h2+=(-2*Math.PI*K.Cd*(Ad/p.mass)*rho*ac*ac)/1000*(86400/(2*Math.PI*Math.sqrt(ac**3/K.mu)));d2++;if(d2%30===0)activeDecayCurve.push({yr:d2/365,h:Math.max(h2,120)});}
+  const hAtEoL=h2;activeDecayCurve.push({yr:p.designLife,h:hAtEoL});
+  // Deorbit burn: assume drops to 200km perigee then natural decay (~90 days)
+  if(nd&&hAtEoL>200){activeDecayCurve.push({yr:p.designLife+0.05,h:200});activeDecayCurve.push({yr:p.designLife+0.3,h:120});}}
+  // New judgment: GO / GO (ΔV) / WARN / NO-GO
+  let decayStatus,decayLabel;
+  if(!nd){decayStatus='go';decayLabel='GO';}
+  else if(dv<50){decayStatus='go';decayLabel='GO (ΔV)';}
+  else if(dv<200){decayStatus='warn';decayLabel='WARN (ΔV)';}
+  else{decayStatus='nogo';decayLabel='NO-GO';}
+  R.decay={years:dy,fccLimit:fl,needsDeorbit:nd,deorbitDV:dv,status:decayStatus,label:decayLabel,A_drag:Ad,curve:decayCurve,activeCurve:activeDecayCurve,designLife:p.designLife};
+
+  // Mass
+  const ms=p.structFrac*p.mass, mp=p.solarArea*4.0+p.battery/150, mc=COMMS_MASS[p.commsMassKey]||5;
+  const mt_=0.04*p.mass, mh=0.05*p.mass;
+  const mu=ms+mp+p.adcsMass+p.obcMass+mc+mt_+mh+p.payloadMass;
+  const mmk=p.mass-mu, mmp=mmk/p.mass*100;
+  const vol=p.mass/p.avgDensity, sc=Math.pow(vol,1/3);
+  const Lm=(sc*p.aspect[0]*1000).toFixed(0), Wm=(sc*p.aspect[1]*1000).toFixed(0), Hm=(sc*p.aspect[2]*1000).toFixed(0);
+  R.mass={subs:[{n:'Structure',v:ms},{n:'Power',v:mp},{n:'Payload',v:p.payloadMass},{n:'ADCS',v:p.adcsMass},{n:'OBC',v:p.obcMass},{n:'Comms',v:mc},{n:'Thermal',v:mt_},{n:'Harness',v:mh}],used:mu,marginKg:mmk,marginPct:mmp,L:Lm,W:Wm,H:Hm,volume:vol,status:mmp<10?'nogo':mmp<20?'warn':'go',total:p.mass};
+
+  // Thermal — transient model with effective radiator fraction
+  const alpha=0.3, eps=0.8;
+  const Fv=K.Re**2/(K.Re+p.alt*1000)**2;
+  const An=parseFloat(Lm)/1000*parseFloat(Wm)/1000;
+  const As=(parseFloat(Lm)/1000*parseFloat(Hm)/1000+parseFloat(Wm)/1000*parseFloat(Hm)/1000)/2;
+  const Ar=2*(parseFloat(Lm)/1000*parseFloat(Wm)/1000+parseFloat(Lm)/1000*parseFloat(Hm)/1000+parseFloat(Wm)/1000*parseFloat(Hm)/1000);
+  const ArEff=Ar*p.fRad; // effective radiator area (rest is MLI-covered)
+  const Qs=alpha*K.S*As, Qa=alpha*K.albedo*K.S*An*Fv, Qi=eps*K.E_IR*An*Fv, Qint=P_avg*0.8;
+
+  // Hot case equilibrium (sunlit)
+  const QhotTotal=Qs+Qa+Qi+Qint;
+  const T_hot=Math.pow(QhotTotal/(eps*K.sigma*ArEff),0.25)-273.15;
+
+  // Cold case: transient cooling from T_hot during eclipse
+  const Cth=p.mass*900; // thermal capacitance J/K
+  let Tcurr=T_hot+273.15; // start at T_hot in Kelvin
+  const dtStep=10; // 10 second time steps
+  const eclSteps=Math.ceil(t_ecl/dtStep);
+  const QeclIn=Qi+Qint*0.7; // Earth IR + reduced internal heat during eclipse
+  for(let i=0;i<eclSteps;i++){
+    const Qrad=eps*K.sigma*ArEff*Math.pow(Tcurr,4);
+    Tcurr+=(QeclIn-Qrad)/Cth*dtStep;
+  }
+  const T_cold=Tcurr-273.15;
+
+  const opMin=-20, opMax=50;
+  R.thermal={T_hot,T_cold,opMin,opMax,status:(T_hot>opMax||T_cold<opMin)?'nogo':(T_hot>opMax-5||T_cold<opMin+5)?'warn':'go',t_ecl,t_sun,T};
+
+  analysisResults=R;
+  renderAnalysis(p);
+}
+
+function renderAnalysis(p){
+  const R=analysisResults;
+  const bg=s=>`<span class="status-badge status-${s}">${s==='go'?T('go'):s==='warn'?T('warn'):T('nogo')}</span>`;
+  const sc=s=>s==='go'?'var(--green)':s==='warn'?'var(--amber)':'var(--red)';
+  const circ=(2*Math.PI*22).toFixed(1);
+  const go=pct=>circ*(1-Math.min(Math.max(pct,0),100)/100);
+  const hb=(key)=>`<button class="help-btn" data-help="${key}">?</button>`;
+  // Gauge with auto font-size + sub-label. Returns the gauge-label div (caller wraps in gauge-ring + gauge-wrap)
+  const gl=(text,color,sub)=>{const len=text.length;const fs=len<=4?13:len<=6?10:8;return`<div class="gauge-label" style="color:${color};font-size:${fs}px">${text}</div></div><div class="gauge-sub">${sub}</div></div>`;};
+
+  // Power
+  const pw=R.power, pwP=Math.min(Math.max(pw.margin,0),100);
+  const eF=pw.t_ecl/pw.T, eX=Math.round(400*(1-eF)), eW=400-eX;
+  const eclM=(pw.t_ecl/60).toFixed(0), sunM=(pw.t_sun/60).toFixed(0);
+  const dodMax=pw.DoD, dodY0=88, dodPeak=Math.max(55,dodY0-dodMax*0.6);
+  document.getElementById('card-power').innerHTML=`
+    <div class="analysis-header"><span class="analysis-title">${T('aPower')}</span>${bg(pw.status)}</div>
+    <div class="ac-inner"><div class="ac-left">
+      <div class="gauge-row"><div class="gauge-wrap"><div class="gauge-ring"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" class="gauge-bg"/><circle cx="24" cy="24" r="22" class="gauge-fill" stroke="${sc(pw.status)}" stroke-dasharray="${circ}" stroke-dashoffset="${go(pwP)}"/></svg>${gl(pw.margin>100?T('go'):'+'+pw.margin.toFixed(0)+'%',sc(pw.status),T('gMargin'))}
+      <div class="gauge-stats">
+        <div class="gauge-stat"><span class="gauge-stat-label">${T('sGeneration')}</span><span class="gauge-stat-value">${pw.P_gen.toFixed(0)} W</span></div>
+        <div class="gauge-stat"><span class="gauge-stat-label">${T('sConsumption')}</span><span class="gauge-stat-value">${pw.P_avg.toFixed(0)} W</span></div>
+        <div class="gauge-stat"><span class="gauge-stat-label">${T('sMargin')}</span><span class="gauge-stat-value" style="color:${sc(pw.status)}">${pw.margin>100?'×'+(1+pw.margin/100).toFixed(0)+' ('+pw.margin.toFixed(0)+'%)':'+'+pw.margin.toFixed(0)+'%'}</span></div>
+        <div class="gauge-stat"><span class="gauge-stat-label">${T('sDod')} ${hb('dod')}</span><span class="gauge-stat-value">${pw.DoD.toFixed(0)}%</span></div>
+      </div></div>
+    </div><div class="ac-right"><div class="orbit-cycle"><svg viewBox="0 0 400 120" height="140" preserveAspectRatio="xMidYMid meet">
+      <rect x="${eX}" y="0" width="${eW}" height="120" fill="rgba(255,255,255,0.02)"/>
+      <text x="${eX+eW/2}" y="12" text-anchor="middle" class="phase-label">${T('gEclipse')} (${eclM} min)</text>
+      <text x="${eX/2}" y="12" text-anchor="middle" class="phase-label">${T('gSunlit')} (${sunM} min)</text>
+      <polyline fill="none" stroke="var(--cyan)" stroke-width="1.5" points="0,30 ${eX},30 ${eX+2},82 ${398},82 ${400},30"/>
+      <text x="${Math.min(eX/2,180)}" y="26" text-anchor="middle" class="value-label" fill="var(--cyan)">${pw.P_gen.toFixed(0)} W gen</text>
+      <line x1="0" y1="45" x2="400" y2="45" stroke="rgba(255,255,255,0.3)" stroke-width="0.8" stroke-dasharray="3 2"/>
+      <text x="40" y="53" class="value-label" fill="rgba(255,255,255,0.35)">${pw.P_avg.toFixed(0)} W load</text>
+      <polyline fill="none" stroke="var(--amber)" stroke-width="1.2" stroke-dasharray="4 2" points="0,${dodY0} ${eX*0.5},${dodY0-1} ${eX},${dodY0-2} ${eX+eW*0.3},${dodPeak+5} ${eX+eW*0.6},${dodPeak+1} ${eX+eW*0.85},${dodPeak} ${400},${dodY0}"/>
+      <text x="${eX+eW/2}" y="${dodPeak-4}" text-anchor="middle" class="value-label" fill="var(--amber)">DoD ${dodMax.toFixed(0)}%</text>
+    </svg></div></div></div>`;
+
+  // Link
+  const lk=R.link, lkP=Math.min(Math.max(lk.margin/15*100,0),100);
+  const passDur=p.alt<400?8:p.alt<700?10:12;
+  const lkRows=[
+    {l1:T('sMargin'),v1:`${lk.margin.toFixed(1)} dB`,h1:hb('linkMargin'), l2:T('sGS'),v2:lk.gsName},
+    {l1:T('sDataRate'),v1:`${p.dataRate} Mbps`,h1:'', l2:T('sAvgPass'),v2:`${passDur} min`},
+    {l1:T('sPassesDay'),v1:`${lk.passesPerDay}`,h1:'', l2:T('sBand'),v2:`${p.band} (${BANDS[p.band]} GHz)`},
+    {l1:T('sDailyDL'),v1:`~${lk.dailyVolGB.toFixed(0)} GB`,h1:'', l2:T('sMod'),v2:'QPSK, FEC 3/4'},
+  ];
+  const lkGrid=lkRows.map(r=>`<div class="gauge-stat"><span class="gauge-stat-label">${r.l1} ${r.h1}</span><span class="gauge-stat-value">${r.v1}</span></div><div class="gauge-stat"><span class="gauge-stat-label">${r.l2}</span><span class="gauge-stat-value">${r.v2}</span></div>`).join('');
+  document.getElementById('card-link').innerHTML=`
+    <div class="analysis-header"><span class="analysis-title">${T('aLink')}</span>${bg(lk.status)}</div>
+    <div class="ac-inner"><div class="ac-left">
+      <div class="gauge-row"><div class="gauge-wrap"><div class="gauge-ring"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" class="gauge-bg"/><circle cx="24" cy="24" r="22" class="gauge-fill" stroke="${sc(lk.status)}" stroke-dasharray="${circ}" stroke-dashoffset="${go(lkP)}"/></svg>${gl('+'+lk.margin.toFixed(1),sc(lk.status),T('gDbMargin'))}</div>
+    </div><div class="ac-right">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px;font-size:10px;">${lkGrid}</div>
+    </div></div>`;
+
+  // Decay
+  const dc=R.decay, dcP=Math.min(dc.years/25*100,100);
+  const dcBadge=`<span class="status-badge status-${dc.status}">${dc.label}</span>`;
+  // Debug: log decay curve
+  console.log('[OrbitDecay] Drag area:', dc.A_drag.toFixed(4), 'm², natural re-entry:', dc.years.toFixed(1), 'yr');
+  dc.curve.filter((_,i)=>i%4===0||i===dc.curve.length-1).forEach(pt=>console.log('  yr '+pt.yr.toFixed(1)+': '+pt.h.toFixed(1)+' km'));
+
+  // Build SVG decay chart — Y-axis: 0km to alt+50km, X-axis: 0 to maxYr
+  const maxYr=Math.max(dc.fccLimit+2,Math.min(dc.years*1.15,dc.years+5),dc.designLife+8);
+  const hMax=p.alt+50,hMin=0;
+  const dXs=v=>Math.round(v/maxYr*370+20), dYs=v=>Math.round(8+(1-v/hMax)*104);
+  // Natural decay polyline
+  const natPts=dc.curve.map(pt=>`${dXs(pt.yr)},${dYs(pt.h)}`).join(' ');
+  // Active deorbit polyline
+  const actPts=dc.activeCurve.map(pt=>`${dXs(pt.yr)},${dYs(Math.max(pt.h,0))}`).join(' ');
+  // FCC & 120km lines
+  const fccX=dXs(dc.fccLimit), reY=dYs(120);
+  // ΔV burn marker point
+  const dvPt=dc.activeCurve.find(pt=>Math.abs(pt.yr-dc.designLife)<0.1);
+  const dvBurnX=dXs(dc.designLife), dvBurnY=dvPt?dYs(dvPt.h):dYs(p.alt);
+  // X-axis ticks
+  const xStep=Math.max(1,Math.ceil(maxYr/6));
+  const xTicks=[];for(let y=0;y<=maxYr;y+=xStep)xTicks.push(y);
+  const xTicksH=xTicks.map(y=>`<text x="${dXs(y)}" y="118" text-anchor="middle" class="value-label" fill="rgba(255,255,255,0.2)">${y}</text>`).join('');
+  // Y-axis ticks
+  const yVals=[p.alt,Math.round(p.alt*0.6),Math.round(p.alt*0.3),120];
+  const yTicksH=yVals.map(h=>`<text x="18" y="${dYs(h)+3}" text-anchor="end" class="value-label" fill="rgba(255,255,255,0.18)">${h}</text><line x1="20" y1="${dYs(h)}" x2="390" y2="${dYs(h)}" stroke="rgba(255,255,255,0.03)" stroke-width="0.5"/>`).join('');
+
+  document.getElementById('card-decay').innerHTML=`
+    <div class="analysis-header"><span class="analysis-title">${T('aDecay')}</span>${dcBadge}</div>
+    <div class="ac-inner ac-wide-left"><div class="ac-left">
+      <div class="gauge-row"><div class="gauge-wrap"><div class="gauge-ring"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" class="gauge-bg"/><circle cx="24" cy="24" r="22" class="gauge-fill" stroke="${sc(dc.status)}" stroke-dasharray="${circ}" stroke-dashoffset="${go(dcP)}"/></svg>${gl(dc.years.toFixed(0)+'yr',sc(dc.status),T('gReentry'))}
+      <div class="gauge-stats">
+        <div class="gauge-stat"><span class="gauge-stat-label" style="white-space:normal">${T('sNaturalReentry')}</span><span class="gauge-stat-value">~${dc.years.toFixed(1)} yr</span></div>
+        <div class="gauge-stat"><span class="gauge-stat-label" style="white-space:normal">${T('sFccDeadline')} ${hb('fcc5yr')}</span><span class="gauge-stat-value">${dc.fccLimit}yr <span style="font-size:8px;color:var(--text-muted)">(${dc.designLife}+5)</span></span></div>
+        ${dc.needsDeorbit?`<div class="gauge-stat"><span class="gauge-stat-label" style="white-space:normal">${T('sDeorbitDV')}</span><span class="gauge-stat-value" style="color:${sc(dc.status)}">~${dc.deorbitDV.toFixed(0)} m/s</span></div>`:''}
+        <div class="gauge-stat"><span class="gauge-stat-label" style="white-space:normal">${T('sDragArea')} ${hb('dragCd')}</span><span class="gauge-stat-value">${dc.A_drag.toFixed(2)} m²</span></div>
+      </div></div>
+      <div class="model-note">NRLMSISE-00 (F10.7≈135 sfu, Ap=15)</div>
+    </div><div class="ac-right"><div class="orbit-cycle"><svg viewBox="0 0 400 135" height="160" preserveAspectRatio="xMidYMid meet">
+      ${yTicksH}
+      <!-- 120km re-entry threshold -->
+      <line x1="20" y1="${reY}" x2="390" y2="${reY}" stroke="rgba(255,82,82,0.25)" stroke-width="0.7" stroke-dasharray="4 3"/>
+      <!-- FCC deadline vertical -->
+      <line x1="${fccX}" y1="14" x2="${fccX}" y2="112" stroke="rgba(255,193,7,0.25)" stroke-width="0.7" stroke-dasharray="4 3"/>
+      <text x="${Math.min(fccX,360)}" y="110" text-anchor="${fccX>350?'end':'middle'}" class="value-label" fill="rgba(255,193,7,0.4)">FCC ${dc.fccLimit}yr</text>
+      <!-- Natural decay curve (grey dashed) -->
+      <polyline fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="1.3" stroke-dasharray="5 3" points="${natPts}"/>
+      <!-- Active deorbit curve (cyan) -->
+      ${dc.needsDeorbit?`<polyline fill="none" stroke="var(--cyan)" stroke-width="1.5" points="${actPts}"/>
+      <circle cx="${dvBurnX}" cy="${dvBurnY}" r="3" fill="var(--cyan)" stroke="rgba(0,0,0,0.5)" stroke-width="0.5"/>
+      <text x="${dvBurnX+4}" y="${Math.max(dvBurnY-5,14)}" class="value-label" fill="var(--cyan)">ΔV burn</text>`:''}
+      <!-- X-axis ticks -->
+      ${xTicksH}
+      <text x="392" y="118" text-anchor="end" class="value-label" fill="rgba(255,255,255,0.15)">yr</text>
+      <text x="2" y="12" class="value-label" fill="rgba(255,255,255,0.15)">km</text>
+      <!-- Legend (below x-axis) -->
+      <line x1="120" y1="130" x2="136" y2="130" stroke="rgba(255,255,255,0.35)" stroke-width="1" stroke-dasharray="3 2"/>
+      <text x="140" y="132" class="value-label" fill="rgba(255,255,255,0.25)">Natural decay</text>
+      ${dc.needsDeorbit?`<line x1="220" y1="130" x2="236" y2="130" stroke="var(--cyan)" stroke-width="1.3"/>
+      <text x="240" y="132" class="value-label" fill="rgba(0,229,255,0.5)">Active deorbit (w/ ΔV)</text>`:''}
+    </svg></div></div></div>`;
+
+  // Mass
+  const ms=R.mass, msP=Math.min(Math.max(ms.marginPct,0),100);
+  const bCol=['rgba(0,229,255,0.5)','rgba(0,229,255,0.4)','rgba(255,193,7,0.5)','rgba(100,180,255,0.4)','rgba(100,180,255,0.3)','rgba(0,229,255,0.3)','rgba(255,255,255,0.15)','rgba(255,255,255,0.12)'];
+  const msl=T('massSubs');
+  const bars=ms.subs.map((s,i)=>`<div class="mass-bar-row"><span class="mass-bar-label">${msl[i]||s.n}</span><div class="mass-bar-track"><div class="mass-bar-fill" style="width:${(s.v/ms.total*100).toFixed(1)}%;background:${bCol[i]}"></div></div><span class="mass-bar-val">${s.v.toFixed(1)}kg</span></div>`).join('');
+  document.getElementById('card-mass').innerHTML=`
+    <div class="analysis-header"><span class="analysis-title">${T('aMass')}</span>${bg(ms.status)}</div>
+    <div class="ac-inner"><div class="ac-left">
+      <div class="gauge-row"><div class="gauge-wrap"><div class="gauge-ring"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" class="gauge-bg"/><circle cx="24" cy="24" r="22" class="gauge-fill" stroke="${sc(ms.status)}" stroke-dasharray="${circ}" stroke-dashoffset="${go(msP)}"/></svg>${gl(ms.marginPct.toFixed(0)+'%',sc(ms.status),T('gMargin'))}
+      <div class="gauge-stats">
+        <div class="gauge-stat"><span class="gauge-stat-label">${T('sUsed')}</span><span class="gauge-stat-value">${ms.used.toFixed(1)}/${ms.total}kg</span></div>
+        <div class="gauge-stat"><span class="gauge-stat-label">${T('sMargin')}</span><span class="gauge-stat-value" style="color:${sc(ms.status)}">${ms.marginKg.toFixed(1)}kg</span></div>
+      </div></div>
+      <div class="envelope-row"><div class="envelope-3d"><svg viewBox="0 0 60 60"><polygon points="6,18 30,30 30,54 6,42" fill="rgba(0,229,255,0.06)" stroke="rgba(0,229,255,0.6)" stroke-width="1"/><polygon points="30,30 54,18 54,42 30,54" fill="rgba(0,229,255,0.04)" stroke="rgba(0,229,255,0.6)" stroke-width="1"/><polygon points="30,6 54,18 30,30 6,18" fill="rgba(0,229,255,0.08)" stroke="rgba(0,229,255,0.6)" stroke-width="1"/></svg></div>
+      <div class="envelope-dims"><div style="font-size:8px;color:var(--cyan);letter-spacing:1.5px;margin-bottom:2px;font-family:var(--font-head)">${T('gEnvelope')}</div><div class="dim-row"><span class="dim-label">L×W×H</span><span class="dim-value">${ms.L}×${ms.W}×${ms.H}</span></div><div class="dim-row"><span class="dim-label">Vol</span><span class="dim-value">${ms.volume.toFixed(3)}m³</span></div></div></div>
+    </div><div class="ac-right"><div class="mass-bars">${bars}</div></div></div>`;
+
+  // Thermal
+  const th=R.thermal;
+  const eF2=th.t_ecl/th.T, eX2=Math.round(400*(1-eF2)), eW2=400-eX2;
+  // Map temperature to Y coordinates: +60°C→y=10, -50°C→y=110 (total range 110°C mapped to 100px)
+  const tToY=t=>10+(60-t)/110*100;
+  const hY=tToY(th.T_hot).toFixed(0), cY=tToY(th.T_cold).toFixed(0);
+  const opTopY=tToY(th.opMax).toFixed(0), opBotY=tToY(th.opMin).toFixed(0);
+  // Temperature curve: ramp up during sunlit, ramp down during eclipse
+  const midT=(th.T_hot+th.T_cold)/2, midY=tToY(midT).toFixed(0);
+  const warmY=tToY(th.T_hot-(th.T_hot-th.T_cold)*0.2).toFixed(0);
+  document.getElementById('card-thermal').innerHTML=`
+    <div class="analysis-header"><span class="analysis-title">${T('aThermal')} ${hb('alphaEps')}</span>${bg(th.status)}</div>
+    <div class="ac-inner"><div class="ac-left">
+      <div class="gauge-row"><div class="gauge-wrap"><div class="gauge-ring"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" class="gauge-bg"/><circle cx="24" cy="24" r="22" class="gauge-fill" stroke="${sc(th.status)}" stroke-dasharray="${circ}" stroke-dashoffset="${go(th.status==='go'?75:40)}"/></svg>${gl(th.status==='nogo'?'!!':'OK',sc(th.status),T('gStatus'))}
+      <div class="gauge-stats">
+        <div class="gauge-stat"><span class="gauge-stat-label">${T('sHotPeak')}</span><span class="gauge-stat-value">+${th.T_hot.toFixed(0)}°C</span></div>
+        <div class="gauge-stat"><span class="gauge-stat-label">${T('sColdMin')}</span><span class="gauge-stat-value">${th.T_cold.toFixed(0)}°C</span></div>
+        <div class="gauge-stat"><span class="gauge-stat-label">${T('sOpRange')}</span><span class="gauge-stat-value">${th.opMin}/+${th.opMax}°C</span></div>
+      </div></div>
+      <div class="model-note">Single-node transient model. Radiator fraction ${(p.fRad*100).toFixed(0)}%. α/ε=0.3/0.8.</div>
+    </div><div class="ac-right"><div class="orbit-cycle"><svg viewBox="0 0 400 120" height="140" preserveAspectRatio="xMidYMid meet">
+      <rect x="${eX2}" y="0" width="${eW2}" height="120" fill="rgba(255,255,255,0.02)"/>
+      <text x="${eX2+eW2/2}" y="12" text-anchor="middle" class="phase-label">${T('gEclipse')}</text>
+      <text x="${eX2/2}" y="12" text-anchor="middle" class="phase-label">${T('gSunlit')}</text>
+      <rect x="0" y="${opTopY}" width="400" height="${opBotY-opTopY}" fill="rgba(0,230,118,0.04)"/>
+      <line x1="0" y1="${opTopY}" x2="400" y2="${opTopY}" stroke="rgba(0,230,118,0.15)" stroke-width="0.5" stroke-dasharray="3 2"/>
+      <line x1="0" y1="${opBotY}" x2="400" y2="${opBotY}" stroke="rgba(0,230,118,0.15)" stroke-width="0.5" stroke-dasharray="3 2"/>
+      <text x="396" y="${parseInt(opTopY)+8}" text-anchor="end" class="value-label" fill="rgba(0,230,118,0.3)">+${th.opMax}°C</text>
+      <text x="396" y="${parseInt(opBotY)-3}" text-anchor="end" class="value-label" fill="rgba(0,230,118,0.3)">${th.opMin}°C</text>
+      <polyline fill="none" stroke="#ff6e40" stroke-width="1.5" points="0,${midY} ${Math.round(eX2*0.2)},${warmY} ${Math.round(eX2*0.5)},${hY} ${Math.round(eX2*0.8)},${hY} ${eX2},${hY} ${eX2+Math.round(eW2*0.2)},${warmY} ${eX2+Math.round(eW2*0.5)},${cY} ${eX2+Math.round(eW2*0.8)},${cY} ${400},${midY}"/>
+      <circle cx="${Math.round(eX2*0.65)}" cy="${hY}" r="3" fill="none" stroke="#ff6e40" stroke-width="1"/>
+      <text x="${Math.round(eX2*0.65)}" y="${parseInt(hY)-7}" text-anchor="middle" class="value-label" fill="#ff6e40">+${th.T_hot.toFixed(0)}°C</text>
+      <circle cx="${eX2+Math.round(eW2*0.65)}" cy="${cY}" r="3" fill="none" stroke="#64b5f6" stroke-width="1"/>
+      <text x="${eX2+Math.round(eW2*0.65)}" y="${parseInt(cY)+12}" text-anchor="middle" class="value-label" fill="#64b5f6">${th.T_cold.toFixed(0)}°C</text>
+    </svg></div></div></div>`;
+}
+
+// === ROCKETS ===
+function renderRockets(filter='all'){
+  const p=getParams(), ns=p.orbitType==='SSO';
+  let res=ROCKETS.map(r=>{const cap=ns&&r.sso?r.sso:r.leo;if(!cap||cap<p.mass)return null;return{...r,cap,margin:(cap-p.mass)/cap*100};}).filter(Boolean);
+  if(filter==='rideshare')res=res.filter(r=>r.rideshare);if(filter==='dedicated')res=res.filter(r=>!r.rideshare);if(filter==='sso')res=res.filter(r=>r.ssoCapable);
+  res.sort((a,b)=>(b.rideshare-a.rideshare)||(b.margin-a.margin)); bestRocket=res[0]||null;
+  document.getElementById('rocketList').innerHTML=res.length?res.map((r,i)=>{const mc=r.margin>80?'high':r.margin>40?'med':'low';const tg=[r.rideshare?'Rideshare':'Dedicated'];if(r.ssoCapable)tg.push('SSO');tg.push(`${(r.success*100).toFixed(0)}%`);return`<div class="rocket-card${i===0?' best':''}">${i===0?'<span class="best-tag">'+T('bestMatch')+'</span>':''}<div class="rocket-rank">${i===0?'':'#'+(i+1)}</div><div class="rocket-info"><div class="rocket-name">${r.name.toUpperCase()}</div><div class="rocket-provider">${r.provider} — ${r.country}</div><div class="rocket-tags">${tg.map(t=>`<span>${t}</span>`).join('')}</div></div><div class="rocket-stats"><div class="rocket-margin ${mc}">+${r.margin.toFixed(0)}%</div><div class="rocket-cap">${r.cap.toLocaleString()} kg to ${ns?'SSO':'LEO'}</div></div></div>`;}).join(''):'<div style="text-align:center;color:var(--text-dim);padding:40px">No matching vehicles.</div>';
+}
+document.getElementById('filterBar').addEventListener('click',e=>{if(e.target.classList.contains('filter-btn')){document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));e.target.classList.add('active');renderRockets(e.target.dataset.filter);}});
+
+// === TERMINAL ===
+let termRun=false;
+async function runTerminal(){
+  if(termRun)return; termRun=true;
+  const p=getParams(),R=analysisResults,m=MISSIONS[selectedMission];
+  const ms=R.mass||{},pw=R.power||{},lk=R.link||{},dc=R.decay||{},th=R.thermal||{};
+  const mn=T('mName');
+  document.getElementById('ts-mission').textContent=`${mn[selectedMission]||m.name} · ${p.mass} KG`;
+  document.getElementById('ts-orbit').textContent=`${p.orbitType} ${p.alt} KM · ${p.inc.toFixed(1)}°`;
+  const sc=s=>s==='go'?'go':s==='warn'?'warn':'nogo', sl=s=>s==='go'?T('go'):s==='warn'?T('warn'):T('nogo');
+  const lines=[
+    {t:'section',v:`─── ${T('tMission')} ───────────────────────────`},
+    {t:'kv',k:T('tMissionType'),v:mn[selectedMission]||m.name},{t:'kv',k:T('tOrbit'),v:`${p.orbitType} ${p.alt} km, ${p.inc.toFixed(1)}°`},
+    {t:'kv',k:T('tDesignLife'),v:`${p.designLife} yr`},{t:'kv',k:T('tTotalMass'),v:`${p.mass} kg`},
+    {t:'kv',k:T('tEnvelope')+' (L×W×H)',v:`${ms.L||'—'} × ${ms.W||'—'} × ${ms.H||'—'} mm`},
+    {t:'blank'},{t:'section',v:`─── ${T('tBudget')} ───────────────────`},{t:'blank'},
+    {t:'sub',v:`── ${T('aPower')} ──`},
+    {t:'kv',k:T('tStatus'),v:`${sl(pw.status)} (+${(pw.margin||0).toFixed(0)}%)`,c:sc(pw.status)},
+    {t:'kv',k:`  ${T('sGeneration')}`,v:`${(pw.P_gen||0).toFixed(0)} W`},{t:'kv',k:`  ${T('sConsumption')}`,v:`${(pw.P_avg||0).toFixed(0)} W`},{t:'kv',k:'  DoD',v:`${(pw.DoD||0).toFixed(0)}%`},{t:'blank'},
+    {t:'sub',v:`── ${T('aLink')} ──`},
+    {t:'kv',k:T('tStatus'),v:`${sl(lk.status)} (+${(lk.margin||0).toFixed(1)} dB)`,c:sc(lk.status)},
+    {t:'kv',k:`  ${T('sPassesDay')}`,v:`${lk.passesPerDay||'—'}`},{t:'kv',k:`  ${T('sDailyDL')}`,v:`~${(lk.dailyVolGB||0).toFixed(0)} GB`},{t:'blank'},
+    {t:'sub',v:`── ${T('aDecay')} ──`},
+    {t:'kv',k:T('tStatus'),v:`${dc.label||'—'} (${(dc.years||0).toFixed(1)} yr)`,c:sc(dc.status)},
+    {t:'kv',k:'  FCC',v:dc.needsDeorbit?`ΔV ~${(dc.deorbitDV||0).toFixed(0)} m/s`:'COMPLIANT',c:dc.needsDeorbit?(dc.deorbitDV>=50?'warn':'go'):'go'},{t:'blank'},
+    {t:'sub',v:`── ${T('aMass')} ──`},
+    {t:'kv',k:T('tStatus'),v:`${sl(ms.status)} (${(ms.marginPct||0).toFixed(0)}%)`,c:sc(ms.status)},
+    {t:'kv',k:`  ${T('sMargin')}`,v:`${(ms.marginKg||0).toFixed(1)} kg`},{t:'blank'},
+    {t:'sub',v:`── ${T('aThermal')} ──`},
+    {t:'kv',k:T('tStatus'),v:`${sl(th.status)} (${(th.T_cold||0).toFixed(0)}°C ~ +${(th.T_hot||0).toFixed(0)}°C)`,c:sc(th.status)},{t:'blank'},
+    {t:'section',v:`─── ${T('tLaunchVehicle')} ────────────────────`},
+    {t:'kv',k:T('tRecommended'),v:bestRocket?bestRocket.name:'—'},
+    {t:'kv',k:T('tPayloadMargin'),v:bestRocket?`+${bestRocket.margin.toFixed(0)}%`:'—',c:bestRocket?'go':''},{t:'blank'},
+    {t:'prompt',v:T('tComplete')},
+  ];
+  const body=document.getElementById('termBody'); body.innerHTML='';
+  for(const l of lines){const d=document.createElement('div');d.className='term-line';
+    if(l.t==='section')d.innerHTML=`<span class="section-label">${l.v}</span>`;
+    else if(l.t==='sub')d.innerHTML=`<span class="sub-label">${l.v}</span>`;
+    else if(l.t==='kv')d.innerHTML=`<span class="label">${l.k}</span><span class="val ${l.c||''}">${l.v}</span>`;
+    else if(l.t==='prompt')d.innerHTML=`<span class="prompt">▸ </span>${l.v}<span class="term-cursor"></span>`;
+    else d.innerHTML='&nbsp;';
+    body.appendChild(d);body.scrollTop=body.scrollHeight;
+    await new Promise(r=>setTimeout(r,l.t==='blank'?50:l.t==='section'?180:l.t==='sub'?120:70));
+  }
+  termRun=false;
+}
+
+renderMissions(); applyMissionDefaults();
+const hash=location.hash; if(hash&&hash.match(/^#step[1-5]$/))goStep(parseInt(hash.charAt(5)));
+</script>
+</body>
+</html>

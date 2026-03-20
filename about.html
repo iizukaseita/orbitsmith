@@ -91,6 +91,7 @@
   <div class="nav-links">
     <a href="tracker.html" class="nav-link">TRACKER</a>
     <a href="imagery.html" class="nav-link">IMAGERY</a>
+    <a href="designer.html" class="nav-link">DESIGNER</a>
     <a href="about.html" class="nav-link active">ABOUT</a>
     <a href="contact.html" class="nav-link">CONTACT</a>
   </div>
@@ -179,6 +180,27 @@
   </div>
 
   <div class="section">
+    <div class="section-label" data-i18n="projectsLabel">Projects</div>
+    <div class="awards">
+      <a href="tracker.html" class="award-card" style="text-decoration:none;color:inherit;">
+        <div class="award-icon">🛰</div>
+        <div><div class="award-name" data-i18n="projTrackerName">3D Orbital Tracker</div>
+        <div class="award-detail" data-i18n="projTrackerDesc">Real-time 3D visualization of 30,000+ tracked objects. Collision probability calculator with Space-Track catalog data.</div></div>
+      </a>
+      <a href="imagery.html" class="award-card" style="text-decoration:none;color:inherit;">
+        <div class="award-icon">🌍</div>
+        <div><div class="award-name" data-i18n="projImageryName">Satellite Imagery Viewer</div>
+        <div class="award-detail" data-i18n="projImageryDesc">Unified viewer for 15+ layers from NASA, ESA, and ESRI. Fire detection, vegetation, sea temperature, nighttime lights.</div></div>
+      </a>
+      <a href="designer.html" class="award-card" style="text-decoration:none;color:inherit;">
+        <div class="award-icon">🚀</div>
+        <div><div class="award-name" data-i18n="projDesignerName">Mission Designer</div>
+        <div class="award-detail" data-i18n="projDesignerDesc">Interactive satellite mission planning tool. 7 mission templates, 5 budget analyses (power, link, orbit decay, mass, thermal), launch vehicle matching. All client-side.</div></div>
+      </a>
+    </div>
+  </div>
+
+  <div class="section">
     <div class="section-label" data-i18n="connectLabel">Connect</div>
     <div class="social-links">
       <a href="https://x.com/iizukaseita" target="_blank" rel="noopener" class="social-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> @iizukaseita</a>
@@ -210,7 +232,14 @@ const i18n = {
     award1Detail: 'Fifth Japan Space Development & Utilization Awards — Cabinet Office, Government of Japan<br>For "ELSA-d: On-Orbit Demonstration of Space Debris Proximity and Capture"',
     award2Name: "Satellite Technology of the Year 2021",
     award2Detail: "Via Satellite — Awarded to ELSA-d at SATELLITE 2022 Conference, Washington D.C.",
-    connectLabel: "Connect"
+    connectLabel: "Connect",
+    projectsLabel: "Projects",
+    projTrackerName: "3D Orbital Tracker",
+    projTrackerDesc: "Real-time 3D visualization of 30,000+ tracked objects. Collision probability calculator with Space-Track catalog data.",
+    projImageryName: "Satellite Imagery Viewer",
+    projImageryDesc: "Unified viewer for 15+ layers from NASA, ESA, and ESRI. Fire detection, vegetation, sea temperature, nighttime lights.",
+    projDesignerName: "Mission Designer",
+    projDesignerDesc: "Interactive satellite mission planning tool. 7 mission templates, 5 budget analyses (power, link, orbit decay, mass, thermal), launch vehicle matching. All client-side."
   },
   ja: {
     heroName: "飯塚 清太",
@@ -230,7 +259,14 @@ const i18n = {
     award1Detail: '第5回 宇宙開発利用大賞 — 内閣府<br>「ELSA-dによるスペースデブリへの接近・捕獲の軌道上実証」',
     award2Name: "Satellite Technology of the Year 2021",
     award2Detail: "Via Satellite — SATELLITE 2022 Conference（ワシントンD.C.）にてELSA-dが受賞",
-    connectLabel: "つながる"
+    connectLabel: "つながる",
+    projectsLabel: "プロジェクト",
+    projTrackerName: "3D軌道トラッカー",
+    projTrackerDesc: "30,000以上の軌道物体をリアルタイム3D表示。Space-Trackカタログによる衝突確率計算機能付き。",
+    projImageryName: "衛星画像ビューア",
+    projImageryDesc: "NASA・ESA・ESRIの15以上のレイヤーを統合表示。火災検知、植生、海面温度、夜間光。",
+    projDesignerName: "ミッションデザイナー",
+    projDesignerDesc: "衛星ミッションの対話型設計ツール。7つのミッションテンプレート、5つのバジェット解析（電力・通信・軌道減衰・質量・熱）、打上げロケット選定。すべてクライアントサイド。"
   },
   zh: {
     heroName: "饭冢 清太",
@@ -250,7 +286,14 @@ const i18n = {
     award1Detail: '第五届日本宇宙开发利用大奖 — 内阁府<br>"ELSA-d太空碎片接近与捕获在轨演示"',
     award2Name: "2021年度卫星技术奖",
     award2Detail: "Via Satellite — 在SATELLITE 2022大会（华盛顿D.C.）上授予ELSA-d",
-    connectLabel: "联系"
+    connectLabel: "联系",
+    projectsLabel: "项目",
+    projTrackerName: "3D轨道追踪器",
+    projTrackerDesc: "实时3D显示30,000+轨道物体。内含基于Space-Track目录数据的碰撞概率计算器。",
+    projImageryName: "卫星影像浏览器",
+    projImageryDesc: "整合NASA、ESA、ESRI的15+图层。火灾检测、植被、海面温度、夜间灯光。",
+    projDesignerName: "任务设计器",
+    projDesignerDesc: "交互式卫星任务规划工具。7种任务模板、5项预算分析（功率、链路、轨道衰减、质量、热设计）、运载火箭匹配。全部客户端计算。"
   },
   es: {
     heroName: "SEITA IIZUKA",
@@ -270,7 +313,14 @@ const i18n = {
     award1Detail: '5º Premios de Desarrollo y Utilización Espacial de Japón — Oficina del Gabinete, Gobierno de Japón<br>Por "ELSA-d: Demostración en Órbita de Proximidad y Captura de Basura Espacial"',
     award2Name: "Tecnología Satelital del Año 2021",
     award2Detail: "Via Satellite — Otorgado a ELSA-d en la Conferencia SATELLITE 2022, Washington D.C.",
-    connectLabel: "Contacto"
+    connectLabel: "Contacto",
+    projectsLabel: "Proyectos",
+    projTrackerName: "Rastreador Orbital 3D",
+    projTrackerDesc: "Visualización 3D en tiempo real de 30,000+ objetos rastreados. Calculadora de probabilidad de colisión con datos de Space-Track.",
+    projImageryName: "Visor de Imágenes Satelitales",
+    projImageryDesc: "Visor unificado de 15+ capas de NASA, ESA y ESRI. Detección de incendios, vegetación, temperatura del mar, luces nocturnas.",
+    projDesignerName: "Diseñador de Misiones",
+    projDesignerDesc: "Herramienta interactiva de planificación de misiones satelitales. 7 plantillas, 5 análisis de presupuesto (energía, enlace, decaimiento orbital, masa, térmica), selección de vehículo de lanzamiento."
   }
 };
 
