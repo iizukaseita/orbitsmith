@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>OrbitSmith — Holographic Satellite</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=IBM+Plex+Mono:wght@300;400&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#000;overflow:hidden;font-family:'IBM Plex Mono',monospace;}
+  canvas{width:100%;height:100vh;display:block;cursor:grab;}
+  canvas:active{cursor:grabbing;}
+
+  /* Scanline overlay */
+  .scanlines{position:fixed;inset:0;pointer-events:none;z-index:5;
+    background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,229,255,0.008) 2px,rgba(0,229,255,0.008) 4px);}
+
+  /* UI */
+  .ui{position:fixed;bottom:0;left:0;right:0;padding:16px 20px;display:flex;align-items:flex-end;justify-content:space-between;pointer-events:none;z-index:10;}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;pointer-events:all;}
+  .tab{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;padding:5px 10px;border:1px solid rgba(0,229,255,0.1);border-radius:4px;background:rgba(0,0,0,0.7);color:rgba(0,229,255,0.35);cursor:pointer;transition:all 0.25s;backdrop-filter:blur(8px);}
+  .tab:hover{color:rgba(0,229,255,0.7);border-color:rgba(0,229,255,0.25);}
+  .tab.active{color:#00e5ff;border-color:rgba(0,229,255,0.5);background:rgba(0,229,255,0.06);box-shadow:0 0 12px rgba(0,229,255,0.1);}
+  .info{text-align:right;pointer-events:none;}
+  .info-name{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;letter-spacing:4px;color:rgba(0,229,255,0.7);margin-bottom:4px;text-shadow:0 0 20px rgba(0,229,255,0.3);}
+  .info-sub{font-size:9px;color:rgba(0,229,255,0.25);letter-spacing:0.5px;}
+  .info-hint{font-size:8px;color:rgba(255,255,255,0.08);margin-top:8px;}
+
+  /* Corner brackets */
+  .bracket{position:fixed;width:40px;height:40px;pointer-events:none;z-index:10;}
+  .bracket::before,.bracket::after{content:'';position:absolute;background:rgba(0,229,255,0.12);}
+  .tl{top:16px;left:16px;}.tl::before{top:0;left:0;width:20px;height:1px;}.tl::after{top:0;left:0;width:1px;height:20px;}
+  .tr{top:16px;right:16px;}.tr::before{top:0;right:0;width:20px;height:1px;}.tr::after{top:0;right:0;width:1px;height:20px;}
+  .bl{bottom:56px;left:16px;}.bl::before{bottom:0;left:0;width:20px;height:1px;}.bl::after{bottom:0;left:0;width:1px;height:20px;}
+  .br{bottom:56px;right:16px;}.br::before{bottom:0;right:0;width:20px;height:1px;}.br::after{bottom:0;right:0;width:1px;height:20px;}
+
+  /* Top-left readout -->
+  .readout{position:fixed;top:20px;left:24px;z-index:10;pointer-events:none;}
+  .readout-line{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:1px;color:rgba(0,229,255,0.15);line-height:1.8;}
+</style>
+</head>
+<body>
+<div class="scanlines"></div>
+<div class="bracket tl"></div><div class="bracket tr"></div><div class="bracket bl"></div><div class="bracket br"></div>
+
+<div class="readout">
+  <div class="readout-line" id="r1">SYS:NOMINAL</div>
+  <div class="readout-line" id="r2">HOLO:ACTIVE</div>
+  <div class="readout-line" id="r3">ROT:AUTO</div>
+</div>
+
+<canvas id="c"></canvas>
+
+<div class="ui">
+  <div class="tabs">
+    <div class="tab active" onclick="sw(0)">Optical EO</div>
+    <div class="tab" onclick="sw(1)">SAR</div>
+    <div class="tab" onclick="sw(2)">IoT/M2M</div>
+    <div class="tab" onclick="sw(3)">AIS</div>
+    <div class="tab" onclick="sw(4)">Tech Demo</div>
+    <div class="tab" onclick="sw(5)">Science</div>
+    <div class="tab" onclick="sw(6)">Comms</div>
+  </div>
+  <div class="info">
+    <div class="info-name" id="mn">OPTICAL EO</div>
+    <div class="info-sub" id="ms">120 kg · SSO 550 km · 5-year design life</div>
+    <div class="info-hint">Drag to rotate · Scroll to zoom</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const canvas = document.getElementById('c');
+const W = window.innerWidth, H = window.innerHeight;
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+renderer.setSize(W, H);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setClearColor(0x000000, 1);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, W/H, 0.1, 500);
+
+// ---- Orbit controls (manual) ----
+let dist=6, theta=0.6, phi=0.85;
+let tDist=dist, tTheta=theta, tPhi=phi;
+let drag=false, px=0, py=0;
+canvas.addEventListener('mousedown',e=>{drag=true;px=e.clientX;py=e.clientY});
+canvas.addEventListener('touchstart',e=>{drag=true;px=e.touches[0].clientX;py=e.touches[0].clientY},{passive:true});
+window.addEventListener('mouseup',()=>drag=false);
+window.addEventListener('touchend',()=>drag=false);
+canvas.addEventListener('mousemove',e=>{if(!drag)return;tTheta-=(e.clientX-px)*0.005;tPhi=Math.max(0.2,Math.min(2.9,tPhi-(e.clientY-py)*0.005));px=e.clientX;py=e.clientY});
+canvas.addEventListener('touchmove',e=>{if(!drag)return;tTheta-=(e.touches[0].clientX-px)*0.005;tPhi=Math.max(0.2,Math.min(2.9,tPhi-(e.touches[0].clientY-py)*0.005));px=e.touches[0].clientX;py=e.touches[0].clientY},{passive:true});
+canvas.addEventListener('wheel',e=>{tDist=Math.max(3,Math.min(12,tDist+e.deltaY*0.004))},{passive:true});
+
+function updCam(){
+  theta+=(tTheta-theta)*0.07; phi+=(tPhi-phi)*0.07; dist+=(tDist-dist)*0.07;
+  camera.position.set(dist*Math.sin(phi)*Math.cos(theta), dist*Math.cos(phi), dist*Math.sin(phi)*Math.sin(theta));
+  camera.lookAt(0,0,0);
+}
+
+// ---- Hologram material ----
+const holoColor = new THREE.Color(0x00e5ff);
+const holoMat = new THREE.LineBasicMaterial({color:holoColor, transparent:true, opacity:0.55});
+const holoMatBright = new THREE.LineBasicMaterial({color:0x00e5ff, transparent:true, opacity:0.85});
+const holoMatDim = new THREE.LineBasicMaterial({color:0x00e5ff, transparent:true, opacity:0.2});
+const holoMatGold = new THREE.LineBasicMaterial({color:0xddaa33, transparent:true, opacity:0.35});
+const holoMatAccent = new THREE.LineBasicMaterial({color:0xff4444, transparent:true, opacity:0.5});
+const holoFill = new THREE.MeshBasicMaterial({color:0x00e5ff, transparent:true, opacity:0.02, side:THREE.DoubleSide});
+const holoFillPanel = new THREE.MeshBasicMaterial({color:0x0066aa, transparent:true, opacity:0.04, side:THREE.DoubleSide});
+
+function wireBox(w,h,d){
+  const g = new THREE.EdgesGeometry(new THREE.BoxGeometry(w,h,d));
+  return g;
+}
+function wireCyl(rt,rb,h,seg){
+  return new THREE.EdgesGeometry(new THREE.CylinderGeometry(rt,rb,h,seg||12));
+}
+function wireSphere(r,ws,hs){
+  return new THREE.EdgesGeometry(new THREE.SphereGeometry(r,ws||8,hs||6));
+}
+
+function addW(parent, geo, mat, pos, rot) {
+  const l = new THREE.LineSegments(geo, mat || holoMat);
+  if(pos) l.position.set(pos.x||0,pos.y||0,pos.z||0);
+  if(rot){l.rotation.x=rot.x||0;l.rotation.y=rot.y||0;l.rotation.z=rot.z||0;}
+  parent.add(l);
+  return l;
+}
+
+function addFill(parent, geo, mat, pos, rot) {
+  const m = new THREE.Mesh(geo, mat || holoFill);
+  if(pos) m.position.set(pos.x||0,pos.y||0,pos.z||0);
+  if(rot){m.rotation.x=rot.x||0;m.rotation.y=rot.y||0;m.rotation.z=rot.z||0;}
+  parent.add(m);
+  return m;
+}
+
+function addPoint(parent, pos, color, size) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute([pos.x,pos.y,pos.z],3));
+  const p = new THREE.Points(g, new THREE.PointsMaterial({color:color||0x00e5ff, size:size||0.06, transparent:true, opacity:0.9, sizeAttenuation:true}));
+  parent.add(p);
+}
+
+// ---- Panel builder ----
+function buildPanel(parent, xSign, segs, segW, segH, yOff) {
+  const g = new THREE.Group();
+  // Strut
+  const strutLen = 0.2 + segs * segW;
+  addW(g, wireBox(strutLen, 0.02, 0.02), holoMatDim, {x:xSign*(0.48+strutLen/2), y:yOff||0});
+  for(let s=0; s<segs; s++){
+    const cx = xSign * (0.72 + s*(segW+0.04));
+    addW(g, wireBox(segW, 0.01, segH), holoMat, {x:cx, y:yOff||0});
+    addFill(g, new THREE.PlaneGeometry(segW, segH), holoFillPanel, {x:cx, y:(yOff||0)+0.006}, {x:-Math.PI/2});
+    // Cell grid lines
+    for(let gz=-segH/2+segH/4; gz<segH/2; gz+=segH/4){
+      addW(g, wireBox(segW-0.02, 0.012, 0.002), holoMatDim, {x:cx, y:(yOff||0)+0.008, z:gz});
+    }
+    addW(g, wireBox(0.002, 0.012, segH-0.02), holoMatDim, {x:cx, y:(yOff||0)+0.008});
+  }
+  parent.add(g);
+}
+
+// ---- MLI stripes ----
+function addMLI(parent, w, h, d, n) {
+  for(let i=0;i<n;i++){
+    const y = -h/2 + h/(n+1)*(i+1);
+    addW(parent, wireBox(w+0.005, 0.008, d+0.005), holoMatGold, {y});
+  }
+}
+
+// ============ 7 SATELLITES ============
+function buildOpticalEO(){
+  const s = new THREE.Group();
+  addW(s, wireBox(0.9,1.2,0.75), holoMatBright);
+  addFill(s, new THREE.BoxGeometry(0.9,1.2,0.75), holoFill);
+  addMLI(s, 0.9,1.2,0.75, 5);
+  // Side detail
+  addW(s, wireBox(0.2,0.35,0.005), holoMatDim, {x:-0.25,y:0.2,z:0.376});
+  // Optics
+  addW(s, wireCyl(0.22,0.26,0.25,16), holoMatBright, {y:-0.72});
+  addW(s, wireCyl(0.27,0.23,0.12,16), holoMat, {y:-0.86});
+  addW(s, wireCyl(0.19,0.19,0.02,16), holoMatBright, {y:-0.6});
+  addPoint(s, {x:0,y:-0.6,z:0}, 0x00aaff, 0.1);
+  // Panels
+  buildPanel(s, 1, 2, 0.72, 1.1, 0.1);
+  buildPanel(s, -1, 2, 0.72, 1.1, 0.1);
+  // Antenna
+  addW(s, wireCyl(0.01,0.01,0.5,4), holoMatDim, {y:0.85});
+  addW(s, wireSphere(0.1,8,6), holoMat, {x:0.25,y:0.78});
+  addW(s, wireCyl(0.004,0.004,0.3,3), holoMatDim, {x:-0.2,y:0.92,z:0.12},{z:0.12});
+  // Star tracker
+  addW(s, wireBox(0.08,0.08,0.1), holoMatDim, {x:0.46,y:0.3,z:0.15});
+  addPoint(s, {x:0.46,y:0.3,z:0.2}, 0x3366cc, 0.04);
+  // Thrusters
+  addW(s, wireCyl(0.03,0.045,0.06,8), holoMatDim, {x:0.2,y:0.62,z:-0.38});
+  addW(s, wireCyl(0.03,0.045,0.06,8), holoMatDim, {x:-0.2,y:0.62,z:-0.38});
+  // Accent points
+  addPoint(s, {x:-0.451,y:0.15,z:0}, 0x00e5ff, 0.05);
+  addPoint(s, {x:0.451,y:-0.1,z:0}, 0x00e5ff, 0.05);
+  return s;
+}
+
+function buildSAR(){
+  const s = new THREE.Group();
+  addW(s, wireBox(1.0,1.0,0.9), holoMatBright);
+  addFill(s, new THREE.BoxGeometry(1.0,1.0,0.9), holoFill);
+  addMLI(s, 1.0,1.0,0.9, 4);
+  // SAR antenna
+  addW(s, wireBox(3.5,0.04,0.8), holoMatBright, {y:-0.7});
+  addFill(s, new THREE.PlaneGeometry(3.5,0.8), holoFillPanel, {y:-0.68}, {x:-Math.PI/2});
+  for(let i=-1.5;i<=1.5;i+=0.5) addW(s, wireBox(0.005,0.045,0.78), holoMatDim, {x:i,y:-0.7});
+  for(let z=-0.25;z<=0.25;z+=0.25) addW(s, wireBox(3.45,0.045,0.005), holoMatDim, {y:-0.7,z});
+  // Hinges
+  addW(s, wireBox(0.06,0.1,0.06), holoMatDim, {x:0.4,y:-0.52});
+  addW(s, wireBox(0.06,0.1,0.06), holoMatDim, {x:-0.4,y:-0.52});
+  buildPanel(s, 1, 3, 0.65, 0.9, 0.15);
+  buildPanel(s, -1, 3, 0.65, 0.9, 0.15);
+  addW(s, wireCyl(0.01,0.01,0.3,4), holoMatDim, {y:0.65});
+  addW(s, wireBox(0.1,0.1,0.06), holoMatDim, {x:0.3,y:0.52});
+  addPoint(s, {x:0,y:-0.7,z:0}, 0x22cc44, 0.08);
+  return s;
+}
+
+function buildIoT(){
+  const s = new THREE.Group();
+  addW(s, wireBox(0.4,0.6,0.2), holoMatBright);
+  addFill(s, new THREE.BoxGeometry(0.4,0.6,0.2), holoFill);
+  addMLI(s, 0.4,0.6,0.2, 3);
+  // Body cells
+  addW(s, wireBox(0.36,0.005,0.16), holoMat, {y:0.3});
+  buildPanel(s, 1, 1, 0.35, 0.5, 0);
+  buildPanel(s, -1, 1, 0.35, 0.5, 0);
+  // UHF whips
+  const wl = 0.6;
+  addW(s, wireCyl(0.003,0.003,wl,3), holoMat, {x:0.08,y:-0.3-wl/2,z:0.08},{z:0.05,x:0.05});
+  addW(s, wireCyl(0.003,0.003,wl,3), holoMat, {x:-0.08,y:-0.3-wl/2,z:0.08},{z:-0.05,x:0.05});
+  addW(s, wireCyl(0.003,0.003,wl,3), holoMat, {x:0.08,y:-0.3-wl/2,z:-0.08},{z:0.05,x:-0.05});
+  addW(s, wireCyl(0.003,0.003,wl,3), holoMat, {x:-0.08,y:-0.3-wl/2,z:-0.08},{z:-0.05,x:-0.05});
+  addPoint(s, {x:0,y:0.3,z:0}, 0x00e5ff, 0.05);
+  return s;
+}
+
+function buildAIS(){
+  const s = new THREE.Group();
+  addW(s, wireBox(0.2,0.6,0.2), holoMatBright);
+  addFill(s, new THREE.BoxGeometry(0.2,0.6,0.2), holoFill);
+  // Body cells
+  addW(s, wireBox(0.005,0.56,0.16), holoMat, {x:0.1});
+  addW(s, wireBox(0.005,0.56,0.16), holoMat, {x:-0.1});
+  buildPanel(s, 1, 1, 0.25, 0.4, 0);
+  buildPanel(s, -1, 1, 0.25, 0.4, 0);
+  // Crossed dipole
+  addW(s, wireCyl(0.003,0.003,0.45,3), holoMatBright, {y:0.3+0.225});
+  addW(s, wireCyl(0.003,0.003,0.2,3), holoMatBright, {y:0.56},{z:Math.PI/2});
+  addW(s, wireCyl(0.003,0.003,0.2,3), holoMatBright, {y:0.56},{x:Math.PI/2});
+  addPoint(s, {x:0,y:0.56,z:0}, 0x00e5ff, 0.06);
+  return s;
+}
+
+function buildTechDemo(){
+  const s = new THREE.Group();
+  addW(s, wireBox(0.6,0.7,0.5), holoMatBright);
+  addFill(s, new THREE.BoxGeometry(0.6,0.7,0.5), holoFill);
+  addMLI(s, 0.6,0.7,0.5, 3);
+  // Red experiment
+  addW(s, wireBox(0.25,0.25,0.52), holoMatAccent, {y:-0.1,x:0.2});
+  addPoint(s, {x:0.2,y:-0.1,z:0.26}, 0xff4444, 0.06);
+  // Boom + payload
+  addW(s, wireCyl(0.012,0.012,1.0,4), holoMat, {y:-0.35-0.5});
+  addW(s, wireBox(0.12,0.12,0.12), holoMatBright, {y:-0.35-1.0});
+  addPoint(s, {x:0,y:-1.35,z:0}, 0x00e5ff, 0.06);
+  buildPanel(s, 1, 1, 0.55, 0.7, 0);
+  buildPanel(s, -1, 1, 0.55, 0.7, 0);
+  addW(s, wireCyl(0.008,0.008,0.3,3), holoMatDim, {y:0.5});
+  return s;
+}
+
+function buildScience(){
+  const s = new THREE.Group();
+  addW(s, wireBox(0.8,1.0,0.7), holoMatBright);
+  addFill(s, new THREE.BoxGeometry(0.8,1.0,0.7), holoFill);
+  addMLI(s, 0.8,1.0,0.7, 4);
+  // Mag boom
+  addW(s, wireCyl(0.008,0.008,2.5,4), holoMat, {z:0.35+1.25},{x:Math.PI/2});
+  addW(s, wireBox(0.06,0.06,0.08), holoMatBright, {z:0.35+2.5});
+  addPoint(s, {x:0,y:0,z:2.85}, 0x00e5ff, 0.06);
+  // Langmuir
+  addW(s, wireCyl(0.006,0.006,1.5,4), holoMatDim, {z:-0.35-0.75},{x:Math.PI/2});
+  addW(s, wireSphere(0.04,6,4), holoMat, {z:-0.35-1.5});
+  // Particle detector
+  addW(s, wireCyl(0.15,0.15,0.2,12), holoMatBright, {y:0.6});
+  addW(s, wireCyl(0.13,0.13,0.02,12), holoMatBright, {y:0.71});
+  addPoint(s, {x:0,y:0.71,z:0}, 0x4488ee, 0.08);
+  buildPanel(s, 1, 2, 0.65, 0.85, 0.1);
+  buildPanel(s, -1, 2, 0.65, 0.85, 0.1);
+  addW(s, wireSphere(0.12,8,6), holoMat, {x:0.42,y:0.3,z:-0.2});
+  return s;
+}
+
+function buildComms(){
+  const s = new THREE.Group();
+  addW(s, wireBox(0.9,0.9,0.8), holoMatBright);
+  addFill(s, new THREE.BoxGeometry(0.9,0.9,0.8), holoFill);
+  addMLI(s, 0.9,0.9,0.8, 4);
+  // Big dish
+  addW(s, wireSphere(0.55, 16, 8), holoMatBright, {y:0.85});
+  addW(s, wireCyl(0.02,0.03,0.35,6), holoMat, {y:0.6});
+  addPoint(s, {x:0,y:0.6,z:0}, 0x00e5ff, 0.06);
+  // Struts
+  for(let a=0;a<4;a++){
+    const ang=a*Math.PI/2;
+    const sx=Math.cos(ang)*0.12, sz=Math.sin(ang)*0.12;
+    const ex=Math.cos(ang)*0.4, ez=Math.sin(ang)*0.4;
+    const g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(sx,0.65,sz),new THREE.Vector3(ex,1.05,ez)]);
+    s.add(new THREE.Line(g, holoMatDim));
+  }
+  // Mast
+  addW(s, wireCyl(0.02,0.02,0.2,6), holoMatDim, {y:0.55});
+  buildPanel(s, 1, 3, 0.72, 1.0, 0);
+  buildPanel(s, -1, 3, 0.72, 1.0, 0);
+  // Radiator
+  addW(s, wireBox(0.005,0.5,0.4), holoMatDim, {x:-0.46});
+  // Amplifier box
+  addW(s, wireBox(0.2,0.15,0.12), holoMatDim, {x:0.35,y:-0.2,z:0.42});
+  return s;
+}
+
+// ---- Grid floor ----
+const gridHelper = new THREE.GridHelper(10, 30, 0x002233, 0x001118);
+gridHelper.position.y = -2.2;
+gridHelper.material.transparent = true;
+gridHelper.material.opacity = 0.3;
+scene.add(gridHelper);
+
+// Glowing center ring on floor
+const floorRing = new THREE.Mesh(
+  new THREE.TorusGeometry(1.5, 0.005, 4, 64),
+  new THREE.MeshBasicMaterial({color:0x00e5ff, transparent:true, opacity:0.15})
+);
+floorRing.rotation.x = -Math.PI/2;
+floorRing.position.y = -2.19;
+scene.add(floorRing);
+
+const floorRing2 = new THREE.Mesh(
+  new THREE.TorusGeometry(2.0, 0.003, 4, 64),
+  new THREE.MeshBasicMaterial({color:0x00e5ff, transparent:true, opacity:0.06})
+);
+floorRing2.rotation.x = -Math.PI/2;
+floorRing2.position.y = -2.19;
+scene.add(floorRing2);
+
+// ---- Starfield ----
+const sGeo = new THREE.BufferGeometry();
+const sPos = new Float32Array(1500*3);
+for(let i=0;i<1500;i++){
+  const r=30+Math.random()*120;
+  const t=Math.random()*Math.PI*2;
+  const p=Math.acos(2*Math.random()-1);
+  sPos[i*3]=r*Math.sin(p)*Math.cos(t);
+  sPos[i*3+1]=r*Math.sin(p)*Math.sin(t);
+  sPos[i*3+2]=r*Math.cos(p);
+}
+sGeo.setAttribute('position',new THREE.BufferAttribute(sPos,3));
+scene.add(new THREE.Points(sGeo, new THREE.PointsMaterial({color:0xffffff, size:0.12, transparent:true, opacity:0.5, sizeAttenuation:true})));
+
+// ---- Floating holo particles ----
+const pCount = 50;
+const pGeo = new THREE.BufferGeometry();
+const pPositions = new Float32Array(pCount*3);
+const pVels = [];
+for(let i=0;i<pCount;i++){
+  pPositions[i*3]=(Math.random()-0.5)*6;
+  pPositions[i*3+1]=(Math.random()-0.5)*5-0.5;
+  pPositions[i*3+2]=(Math.random()-0.5)*6;
+  pVels.push({x:(Math.random()-0.5)*0.003,y:0.001+Math.random()*0.004,z:(Math.random()-0.5)*0.003});
+}
+pGeo.setAttribute('position',new THREE.BufferAttribute(pPositions,3));
+const particles = new THREE.Points(pGeo, new THREE.PointsMaterial({color:0x00e5ff, size:0.03, transparent:true, opacity:0.4, sizeAttenuation:true}));
+scene.add(particles);
+
+// ---- Vertical beam ----
+const beamGeo = new THREE.CylinderGeometry(0.002, 0.6, 4.5, 16, 1, true);
+const beamMat = new THREE.MeshBasicMaterial({color:0x00e5ff, transparent:true, opacity:0.015, side:THREE.DoubleSide});
+const beam = new THREE.Mesh(beamGeo, beamMat);
+beam.position.y = -0.2;
+scene.add(beam);
+
+// ---- Lighting (minimal, mainly for ambient) ----
+scene.add(new THREE.AmbientLight(0x0a1a2a, 0.3));
+
+// ============ MISSION SWITCH ============
+const satGroup = new THREE.Group();
+scene.add(satGroup);
+
+const builders = [buildOpticalEO, buildSAR, buildIoT, buildAIS, buildTechDemo, buildScience, buildComms];
+const mData = [
+  {n:'OPTICAL EO',s:'120 kg · SSO 550 km · 5-year design life'},
+  {n:'SAR',s:'350 kg · SSO 620 km · High-power radar'},
+  {n:'IoT / M2M',s:'12 kg · 6U CubeSat · LEO 520 km'},
+  {n:'AIS / ADS-B',s:'8 kg · 3U CubeSat · LEO 580 km'},
+  {n:'TECH DEMO',s:'50 kg · LEO 400 km · Experimental'},
+  {n:'SCIENCE',s:'180 kg · HEO · Magnetosphere study'},
+  {n:'COMMS RELAY',s:'250 kg · MEO 8000 km · Store-and-forward'},
+];
+let curM = 0, satModel = null, tProg = 1, transitioning = false;
+
+function clearSat(){
+  while(satGroup.children.length>0){
+    const c=satGroup.children[0]; satGroup.remove(c);
+    c.traverse(o=>{if(o.geometry)o.geometry.dispose();});
+  }
+}
+
+function sw(idx){
+  if(idx===curM&&!transitioning)return;
+  curM=idx;
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===idx));
+  document.getElementById('mn').textContent=mData[idx].n;
+  document.getElementById('ms').textContent=mData[idx].s;
+  transitioning=true; tProg=0;
+  setTimeout(()=>{
+    clearSat();
+    satModel=builders[idx]();
+    satModel.scale.set(0.01,0.01,0.01);
+    satGroup.add(satModel);
+  },250);
+}
+
+// Init
+satModel = buildOpticalEO();
+satGroup.add(satModel);
+
+// ============ ANIMATE ============
+const clock = new THREE.Clock();
+
+function animate(){
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+  updCam();
+
+  if(!drag) tTheta += 0.0012;
+
+  // Sat hover
+  satGroup.position.y = Math.sin(t*0.5)*0.06;
+  satGroup.rotation.y = Math.sin(t*0.15)*0.03;
+
+  // Transition
+  if(transitioning && satModel){
+    tProg=Math.min(1,tProg+0.035);
+    const e=1-Math.pow(1-tProg,3);
+    satModel.scale.setScalar(e);
+    if(tProg>=1) transitioning=false;
+  }
+
+  // Particles rise
+  const pp=particles.geometry.attributes.position.array;
+  for(let i=0;i<pCount;i++){
+    pp[i*3]+=pVels[i].x;
+    pp[i*3+1]+=pVels[i].y;
+    pp[i*3+2]+=pVels[i].z;
+    if(pp[i*3+1]>3){pp[i*3+1]=-2.2;pp[i*3]=(Math.random()-0.5)*4;pp[i*3+2]=(Math.random()-0.5)*4;}
+  }
+  particles.geometry.attributes.position.needsUpdate=true;
+
+  // Floor ring pulse
+  floorRing.material.opacity = 0.12 + Math.sin(t*0.8)*0.05;
+
+  // Beam flicker
+  beam.material.opacity = 0.012 + Math.sin(t*1.2)*0.005;
+
+  // Readout update
+  if(Math.floor(t*2)%4===0){
+    document.getElementById('r3').textContent = `ROT:${(theta*180/Math.PI%360).toFixed(1)}°`;
+  }
+
+  renderer.render(scene,camera);
+}
+animate();
+
+window.addEventListener('resize',()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+});
+</script>
+</body>
+</html>

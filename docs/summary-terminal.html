@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>OrbitSmith — Summary Concepts</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=IBM+Plex+Mono:wght@300;400;500&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--cy:#00e5ff;--bg:#000;--surface:rgba(4,8,16,0.85);}
+  body{background:var(--bg);color:#d0d4dc;font-family:'IBM Plex Mono',monospace;min-height:100vh;display:flex;flex-direction:column;align-items:center;}
+
+  /* Concept selector */
+  .concept-bar{display:flex;gap:0;margin:20px 0 0;border:1px solid rgba(0,229,255,0.12);border-radius:6px;overflow:hidden;}
+  .concept-btn{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;padding:10px 20px;background:transparent;border:none;color:rgba(255,255,255,0.3);cursor:pointer;transition:all 0.25s;border-right:1px solid rgba(0,229,255,0.08);}
+  .concept-btn:last-child{border-right:none;}
+  .concept-btn:hover{color:rgba(255,255,255,0.6);background:rgba(0,229,255,0.03);}
+  .concept-btn.active{color:var(--cy);background:rgba(0,229,255,0.06);}
+
+  .concept{display:none;width:100%;max-width:900px;padding:24px;animation:fadeUp 0.5s ease;}
+  .concept.visible{display:block;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+
+  /* ===== CONCEPT A: Blueprint ===== */
+  .blueprint{position:relative;width:100%;aspect-ratio:16/10;background:rgba(0,10,20,0.5);border:1px solid rgba(0,229,255,0.06);border-radius:12px;overflow:hidden;}
+  .blueprint-grid{position:absolute;inset:0;background-image:
+    linear-gradient(rgba(0,229,255,0.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,229,255,0.03) 1px,transparent 1px);
+    background-size:40px 40px;}
+  .blueprint svg{width:100%;height:100%;}
+  .bp-line{stroke-dasharray:1000;stroke-dashoffset:1000;animation:drawLine 2s ease forwards;}
+  .bp-line-d1{animation-delay:0.1s}
+  .bp-line-d2{animation-delay:0.3s}
+  .bp-line-d3{animation-delay:0.5s}
+  .bp-line-d4{animation-delay:0.7s}
+  .bp-line-d5{animation-delay:0.9s}
+  .bp-line-d6{animation-delay:1.1s}
+  .bp-line-d7{animation-delay:1.3s}
+  .bp-line-d8{animation-delay:1.5s}
+  .bp-line-d9{animation-delay:1.7s}
+  .bp-line-d10{animation-delay:1.9s}
+  @keyframes drawLine{to{stroke-dashoffset:0}}
+  .bp-text{opacity:0;animation:fadeIn 0.4s ease forwards;}
+  .bp-text-d1{animation-delay:2.2s}
+  .bp-text-d2{animation-delay:2.4s}
+  .bp-text-d3{animation-delay:2.6s}
+  .bp-text-d4{animation-delay:2.8s}
+  .bp-text-d5{animation-delay:3.0s}
+  .bp-text-d6{animation-delay:3.2s}
+  .bp-text-d7{animation-delay:3.4s}
+  .bp-text-d8{animation-delay:3.6s}
+  @keyframes fadeIn{to{opacity:1}}
+
+  .bp-label{font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:2px;color:rgba(0,229,255,0.5);position:absolute;top:16px;left:20px;}
+  .bp-label-r{right:20px;left:auto;}
+  .bp-stamp{position:absolute;bottom:16px;right:20px;font-family:'Orbitron',sans-serif;font-size:7px;letter-spacing:3px;color:rgba(0,229,255,0.15);text-transform:uppercase;}
+
+  /* Dimension annotation */
+  .bp-dim{font-family:'IBM Plex Mono',monospace;font-size:8px;fill:rgba(0,229,255,0.4);}
+  .bp-callout{font-family:'IBM Plex Mono',monospace;font-size:7px;fill:rgba(255,255,255,0.35);}
+  .bp-title{font-family:'Orbitron',sans-serif;font-size:10px;fill:rgba(0,229,255,0.6);letter-spacing:2px;}
+
+  /* ===== CONCEPT B: Mission Control Terminal ===== */
+  .terminal{width:100%;background:rgba(0,8,16,0.8);border:1px solid rgba(0,229,255,0.08);border-radius:12px;overflow:hidden;}
+  .term-header{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid rgba(0,229,255,0.06);background:rgba(0,229,255,0.02);}
+  .term-dot{width:6px;height:6px;border-radius:50%;background:rgba(0,229,255,0.3);}
+  .term-dot.r{background:rgba(255,82,82,0.4);}
+  .term-dot.y{background:rgba(255,193,7,0.4);}
+  .term-dot.g{background:rgba(0,230,118,0.4);}
+  .term-title{font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:3px;color:rgba(0,229,255,0.4);margin-left:8px;}
+  .term-body{padding:20px;font-size:11px;line-height:2.0;color:rgba(0,229,255,0.6);min-height:420px;position:relative;}
+  .term-line{opacity:0;animation:termType 0.3s ease forwards;white-space:nowrap;}
+  .term-line .label{color:rgba(255,255,255,0.2);display:inline-block;min-width:180px;}
+  .term-line .val{color:rgba(0,229,255,0.8);font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:1px;}
+  .term-line .val.go{color:rgba(0,230,118,0.8);}
+  .term-line .val.warn{color:rgba(255,193,7,0.8);}
+  .term-line .val.nogo{color:rgba(255,82,82,0.8);}
+  .term-line .prompt{color:rgba(0,229,255,0.3);}
+  .term-line .section{color:rgba(255,255,255,0.12);font-size:9px;letter-spacing:3px;text-transform:uppercase;}
+  .term-cursor{display:inline-block;width:7px;height:14px;background:rgba(0,229,255,0.6);animation:blink 0.8s step-end infinite;vertical-align:middle;margin-left:2px;}
+  @keyframes blink{50%{opacity:0}}
+  @keyframes termType{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}
+
+  /* Status bar at bottom of terminal */
+  .term-status{display:flex;justify-content:space-between;padding:8px 16px;border-top:1px solid rgba(0,229,255,0.04);font-size:8px;color:rgba(0,229,255,0.2);letter-spacing:1px;}
+
+  /* ===== CONCEPT C: Orbital Data Viz ===== */
+  .orbital{width:100%;aspect-ratio:16/10;position:relative;display:flex;align-items:center;justify-content:center;background:rgba(0,8,16,0.3);border:1px solid rgba(0,229,255,0.06);border-radius:12px;overflow:hidden;}
+  .orbital-center{text-align:center;z-index:2;position:relative;}
+  .orbital-icon{width:100px;height:100px;margin:0 auto 16px;position:relative;}
+  .orbital-icon svg{width:100%;height:100%;}
+  .orbital-name{font-family:'Orbitron',sans-serif;font-size:22px;font-weight:900;letter-spacing:6px;color:rgba(255,255,255,0.85);margin-bottom:4px;}
+  .orbital-name span{color:var(--cy);}
+  .orbital-sub{font-size:10px;color:rgba(255,255,255,0.2);letter-spacing:1px;margin-bottom:24px;}
+
+  /* Budget pills row */
+  .orbital-budgets{display:flex;gap:8px;justify-content:center;margin-bottom:24px;}
+  .ob-pill{padding:6px 14px;border:1px solid rgba(0,229,255,0.1);border-radius:20px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(0,229,255,0.4);display:flex;align-items:center;gap:6px;backdrop-filter:blur(4px);background:rgba(0,229,255,0.02);}
+  .ob-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+  .ob-dot.go{background:#00e676;box-shadow:0 0 6px rgba(0,230,118,0.4);}
+  .ob-dot.warn{background:#ffc107;box-shadow:0 0 6px rgba(255,193,7,0.4);}
+
+  /* Orbiting data cards */
+  .orbit-track{position:absolute;width:500px;height:500px;top:50%;left:50%;transform:translate(-50%,-50%);animation:orbitSpin 30s linear infinite;}
+  .orbit-track2{animation-duration:45s;animation-direction:reverse;width:600px;height:600px;}
+  @keyframes orbitSpin{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}
+  .orbit-ring-vis{position:absolute;inset:0;border:1px solid rgba(0,229,255,0.04);border-radius:50%;}
+
+  .ocard{position:absolute;width:110px;padding:8px 10px;background:rgba(0,10,20,0.85);border:1px solid rgba(0,229,255,0.1);border-radius:8px;backdrop-filter:blur(8px);animation:counterSpin 30s linear infinite;}
+  .orbit-track2 .ocard{animation-duration:45s;animation-direction:reverse;}
+  @keyframes counterSpin{from{transform:rotate(0deg)}to{transform:rotate(-360deg)}}
+  .ocard-label{font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.2);margin-bottom:3px;}
+  .ocard-value{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:rgba(0,229,255,0.8);letter-spacing:1px;}
+  .ocard-value.white{color:rgba(255,255,255,0.7);}
+
+  /* Key metrics below center */
+  .orbital-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:8px;max-width:360px;margin-left:auto;margin-right:auto;}
+  .om{text-align:center;padding:8px;border:1px solid rgba(255,255,255,0.03);border-radius:6px;background:rgba(0,229,255,0.01);}
+  .om-val{font-family:'Orbitron',sans-serif;font-size:14px;font-weight:700;color:rgba(0,229,255,0.7);letter-spacing:1px;}
+  .om-label{font-size:7px;color:rgba(255,255,255,0.15);letter-spacing:1px;text-transform:uppercase;margin-top:2px;}
+</style>
+</head>
+<body>
+
+<div class="concept-bar">
+  <button class="concept-btn active" onclick="showConcept('a')">A: Blueprint</button>
+  <button class="concept-btn" onclick="showConcept('b')">B: Terminal</button>
+  <button class="concept-btn" onclick="showConcept('c')">C: Orbital Viz</button>
+</div>
+
+<!-- ===== CONCEPT A: Animated Blueprint ===== -->
+<div class="concept visible" id="conceptA">
+  <div class="blueprint">
+    <div class="blueprint-grid"></div>
+    <div class="bp-label">ORBITSMITH MISSION DESIGNER</div>
+    <div class="bp-label bp-label-r" style="font-size:7px;color:rgba(0,229,255,0.25)">OPTICAL EO · 120 KG · SSO 550 KM</div>
+    <div class="bp-stamp">DESIGN REVIEW · v1.0 · 2026</div>
+    <svg viewBox="0 0 900 560" fill="none">
+      <!-- Main body outline -->
+      <rect x="350" y="140" width="200" height="260" rx="6" stroke="rgba(0,229,255,0.5)" stroke-width="1" class="bp-line bp-line-d1"/>
+      <!-- MLI stripes -->
+      <line x1="355" y1="185" x2="545" y2="185" stroke="rgba(200,160,50,0.25)" stroke-width="1" class="bp-line bp-line-d3"/>
+      <line x1="355" y1="225" x2="545" y2="225" stroke="rgba(200,160,50,0.25)" stroke-width="1" class="bp-line bp-line-d3"/>
+      <line x1="355" y1="265" x2="545" y2="265" stroke="rgba(200,160,50,0.25)" stroke-width="1" class="bp-line bp-line-d3"/>
+      <line x1="355" y1="305" x2="545" y2="305" stroke="rgba(200,160,50,0.25)" stroke-width="1" class="bp-line bp-line-d3"/>
+      <!-- Left panel strut -->
+      <line x1="350" y1="268" x2="270" y2="268" stroke="rgba(0,229,255,0.3)" stroke-width="1" class="bp-line bp-line-d2"/>
+      <!-- Left panels -->
+      <rect x="112" y="165" width="156" height="206" rx="3" stroke="rgba(0,100,200,0.5)" stroke-width="1" class="bp-line bp-line-d4"/>
+      <line x1="190" y1="167" x2="190" y2="369" stroke="rgba(0,100,200,0.2)" stroke-width="0.5" class="bp-line bp-line-d5"/>
+      <!-- Left cell lines -->
+      <line x1="114" y1="216" x2="266" y2="216" stroke="rgba(0,100,200,0.15)" stroke-width="0.5" class="bp-line bp-line-d6"/>
+      <line x1="114" y1="268" x2="266" y2="268" stroke="rgba(0,100,200,0.15)" stroke-width="0.5" class="bp-line bp-line-d6"/>
+      <line x1="114" y1="320" x2="266" y2="320" stroke="rgba(0,100,200,0.15)" stroke-width="0.5" class="bp-line bp-line-d6"/>
+      <!-- Right panel strut -->
+      <line x1="550" y1="268" x2="630" y2="268" stroke="rgba(0,229,255,0.3)" stroke-width="1" class="bp-line bp-line-d2"/>
+      <!-- Right panels -->
+      <rect x="632" y="165" width="156" height="206" rx="3" stroke="rgba(0,100,200,0.5)" stroke-width="1" class="bp-line bp-line-d4"/>
+      <line x1="710" y1="167" x2="710" y2="369" stroke="rgba(0,100,200,0.2)" stroke-width="0.5" class="bp-line bp-line-d5"/>
+      <line x1="634" y1="216" x2="786" y2="216" stroke="rgba(0,100,200,0.15)" stroke-width="0.5" class="bp-line bp-line-d6"/>
+      <line x1="634" y1="268" x2="786" y2="268" stroke="rgba(0,100,200,0.15)" stroke-width="0.5" class="bp-line bp-line-d6"/>
+      <line x1="634" y1="320" x2="786" y2="320" stroke="rgba(0,100,200,0.15)" stroke-width="0.5" class="bp-line bp-line-d6"/>
+      <!-- Antenna mast -->
+      <line x1="450" y1="140" x2="450" y2="80" stroke="rgba(0,229,255,0.35)" stroke-width="1" class="bp-line bp-line-d7"/>
+      <!-- Dish -->
+      <ellipse cx="475" cy="95" rx="25" ry="14" stroke="rgba(0,229,255,0.4)" stroke-width="1" class="bp-line bp-line-d8" transform="rotate(-10,475,95)"/>
+      <!-- Whip antenna -->
+      <line x1="430" y1="95" x2="415" y2="60" stroke="rgba(0,229,255,0.25)" stroke-width="0.8" class="bp-line bp-line-d8"/>
+      <!-- Optical payload -->
+      <circle cx="450" cy="425" r="35" stroke="rgba(0,229,255,0.5)" stroke-width="1" class="bp-line bp-line-d5"/>
+      <circle cx="450" cy="425" r="22" stroke="rgba(0,150,255,0.4)" stroke-width="0.8" class="bp-line bp-line-d6"/>
+      <circle cx="450" cy="425" r="10" stroke="rgba(0,200,255,0.5)" stroke-width="0.8" class="bp-line bp-line-d7"/>
+      <!-- Lens hood -->
+      <rect x="420" y="458" width="60" height="12" rx="2" stroke="rgba(0,229,255,0.3)" stroke-width="0.8" class="bp-line bp-line-d8"/>
+      <!-- Star tracker -->
+      <rect x="556" y="180" width="20" height="16" rx="1" stroke="rgba(0,229,255,0.3)" stroke-width="0.8" class="bp-line bp-line-d9"/>
+      <!-- Dimension lines -->
+      <line x1="112" y1="390" x2="268" y2="390" stroke="rgba(0,229,255,0.15)" stroke-width="0.5" class="bp-line bp-line-d9"/>
+      <line x1="112" y1="386" x2="112" y2="394" stroke="rgba(0,229,255,0.15)" stroke-width="0.5" class="bp-line bp-line-d9"/>
+      <line x1="268" y1="386" x2="268" y2="394" stroke="rgba(0,229,255,0.15)" stroke-width="0.5" class="bp-line bp-line-d9"/>
+      <text x="190" y="404" text-anchor="middle" class="bp-dim bp-text bp-text-d6">1,800 mm (panel span)</text>
+      <line x1="345" y1="140" x2="345" y2="400" stroke="rgba(0,229,255,0.15)" stroke-width="0.5" class="bp-line bp-line-d9"/>
+      <line x1="341" y1="140" x2="349" y2="140" stroke="rgba(0,229,255,0.15)" stroke-width="0.5" class="bp-line bp-line-d9"/>
+      <line x1="341" y1="400" x2="349" y2="400" stroke="rgba(0,229,255,0.15)" stroke-width="0.5" class="bp-line bp-line-d9"/>
+      <text x="337" y="275" text-anchor="end" class="bp-dim bp-text bp-text-d7" transform="rotate(-90,337,275)">800 mm</text>
+      <!-- Callout lines + labels -->
+      <line x1="480" y1="95" x2="560" y2="72" stroke="rgba(0,229,255,0.1)" stroke-width="0.5" stroke-dasharray="3 2" class="bp-line bp-line-d10"/>
+      <text x="565" y="75" class="bp-callout bp-text bp-text-d1">X-band parabolic · 18 dBi</text>
+      <line x1="475" y1="425" x2="560" y2="445" stroke="rgba(0,229,255,0.1)" stroke-width="0.5" stroke-dasharray="3 2" class="bp-line bp-line-d10"/>
+      <text x="565" y="448" class="bp-callout bp-text bp-text-d2">Optical payload · f/8 · 35 kg</text>
+      <line x1="269" y1="270" x2="80" y2="445" stroke="rgba(0,229,255,0.1)" stroke-width="0.5" stroke-dasharray="3 2" class="bp-line bp-line-d10"/>
+      <text x="40" y="458" class="bp-callout bp-text bp-text-d3">GaAs triple-junction · 4.0 m² · 142 W</text>
+      <line x1="555" y1="188" x2="610" y2="188" stroke="rgba(0,229,255,0.1)" stroke-width="0.5" stroke-dasharray="3 2" class="bp-line bp-line-d10"/>
+      <text x="618" y="191" class="bp-callout bp-text bp-text-d4">Star tracker</text>
+      <line x1="450" y1="305" x2="565" y2="340" stroke="rgba(0,229,255,0.1)" stroke-width="0.5" stroke-dasharray="3 2" class="bp-line bp-line-d10"/>
+      <text x="570" y="343" class="bp-callout bp-text bp-text-d5">Bus · 120 kg · 4a5568 finish</text>
+      <!-- Title -->
+      <text x="450" y="530" text-anchor="middle" class="bp-title bp-text bp-text-d8">OPTICAL EARTH OBSERVATION SATELLITE</text>
+    </svg>
+  </div>
+</div>
+
+<!-- ===== CONCEPT B: Mission Control Terminal ===== -->
+<div class="concept" id="conceptB">
+  <div class="terminal">
+    <div class="term-header">
+      <div class="term-dot r"></div><div class="term-dot y"></div><div class="term-dot g"></div>
+      <div class="term-title">ORBITSMITH — MISSION SUMMARY</div>
+    </div>
+    <div class="term-body" id="termBody"></div>
+    <div class="term-status">
+      <span>SYS:NOMINAL</span>
+      <span>OPTICAL EO · 120 KG</span>
+      <span>SSO 550 KM · 97.4°</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CONCEPT C: Orbital Data Viz ===== -->
+<div class="concept" id="conceptC">
+  <div class="orbital">
+    <!-- Orbit track 1 (inner) -->
+    <div class="orbit-track">
+      <div class="orbit-ring-vis"></div>
+      <div class="ocard" style="top:-10px;left:50%;transform-origin:center 260px;">
+        <div class="ocard-label">Orbit</div>
+        <div class="ocard-value white">SSO 550 km</div>
+      </div>
+      <div class="ocard" style="top:50%;right:-20px;transform-origin:-70px center;">
+        <div class="ocard-label">Power margin</div>
+        <div class="ocard-value">+38%</div>
+      </div>
+      <div class="ocard" style="bottom:-10px;left:50%;transform-origin:center -200px;">
+        <div class="ocard-label">Daily downlink</div>
+        <div class="ocard-value">42 GB</div>
+      </div>
+      <div class="ocard" style="top:50%;left:-20px;transform-origin:130px center;">
+        <div class="ocard-label">Link margin</div>
+        <div class="ocard-value">+6.2 dB</div>
+      </div>
+    </div>
+    <!-- Orbit track 2 (outer) -->
+    <div class="orbit-track orbit-track2">
+      <div class="orbit-ring-vis" style="border-color:rgba(0,229,255,0.02)"></div>
+      <div class="ocard" style="top:15%;right:-10px;">
+        <div class="ocard-label">Launch</div>
+        <div class="ocard-value white" style="font-size:10px">Falcon 9</div>
+      </div>
+      <div class="ocard" style="bottom:15%;left:-10px;">
+        <div class="ocard-label">FCC 5-yr rule</div>
+        <div class="ocard-value" style="color:rgba(255,193,7,0.8);font-size:10px">ΔV 18 m/s</div>
+      </div>
+    </div>
+    <!-- Center content -->
+    <div class="orbital-center">
+      <div class="orbital-icon">
+        <svg viewBox="0 0 100 100" fill="none">
+          <circle cx="50" cy="50" r="40" stroke="rgba(0,229,255,0.15)" stroke-width="1"/>
+          <circle cx="50" cy="50" r="28" stroke="rgba(0,229,255,0.1)" stroke-width="0.5"/>
+          <rect x="35" y="30" width="30" height="40" rx="3" stroke="rgba(0,229,255,0.5)" stroke-width="1.2" fill="rgba(0,229,255,0.03)"/>
+          <rect x="10" y="42" width="22" height="16" rx="2" stroke="rgba(0,100,200,0.4)" stroke-width="0.8" fill="rgba(0,100,200,0.03)"/>
+          <rect x="68" y="42" width="22" height="16" rx="2" stroke="rgba(0,100,200,0.4)" stroke-width="0.8" fill="rgba(0,100,200,0.03)"/>
+          <line x1="32" y1="50" x2="10" y2="50" stroke="rgba(0,229,255,0.2)" stroke-width="0.8"/>
+          <line x1="68" y1="50" x2="90" y2="50" stroke="rgba(0,229,255,0.2)" stroke-width="0.8"/>
+          <circle cx="50" cy="76" r="6" stroke="rgba(0,229,255,0.4)" stroke-width="0.8" fill="rgba(0,229,255,0.05)"/>
+          <line x1="50" y1="20" x2="50" y2="30" stroke="rgba(0,229,255,0.3)" stroke-width="0.8"/>
+        </svg>
+      </div>
+      <div class="orbital-name">OPTICAL <span>EO</span></div>
+      <div class="orbital-sub">120 kg · SSO 550 km · 5-year design life</div>
+      <div class="orbital-budgets">
+        <div class="ob-pill"><div class="ob-dot go"></div>Power</div>
+        <div class="ob-pill"><div class="ob-dot go"></div>Link</div>
+        <div class="ob-pill"><div class="ob-dot go"></div>Orbit</div>
+        <div class="ob-pill"><div class="ob-dot warn"></div>Mass</div>
+        <div class="ob-pill"><div class="ob-dot go"></div>Thermal</div>
+      </div>
+      <div class="orbital-metrics">
+        <div class="om"><div class="om-val">142W</div><div class="om-label">Generation</div></div>
+        <div class="om"><div class="om-val">6/day</div><div class="om-label">GS passes</div></div>
+        <div class="om"><div class="om-val">12.4yr</div><div class="om-label">Decay</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// === Concept switcher ===
+function showConcept(id){
+  document.querySelectorAll('.concept').forEach(c=>c.classList.remove('visible'));
+  document.getElementById('concept'+id.toUpperCase()).classList.add('visible');
+  document.querySelectorAll('.concept-btn').forEach((b,i)=>b.classList.toggle('active',['a','b','c'][i]===id));
+  if(id==='b') runTerminal();
+  if(id==='a') replayBlueprint();
+}
+
+// === Blueprint replay ===
+function replayBlueprint(){
+  const bp = document.querySelector('.blueprint svg');
+  const lines = bp.querySelectorAll('.bp-line, .bp-text');
+  lines.forEach(l => {
+    const clone = l.cloneNode(true);
+    l.parentNode.replaceChild(clone, l);
+  });
+}
+
+// === Terminal typewriter ===
+const termLines = [
+  {t:'section', v:'─── MISSION ───────────────────────────'},
+  {t:'kv', k:'Mission type', v:'Optical Earth Observation'},
+  {t:'kv', k:'Orbit', v:'SSO 550 km, 97.4°'},
+  {t:'kv', k:'Design life', v:'5 years'},
+  {t:'kv', k:'Total mass', v:'120 kg'},
+  {t:'kv', k:'Envelope (L×W×H)', v:'800 × 600 × 500 mm'},
+  {t:'blank'},
+  {t:'section', v:'─── BUDGET ANALYSIS ───────────────────'},
+  {t:'kv', k:'Power budget', v:'GO (+38%)', c:'go'},
+  {t:'kv', k:'  Generation (sunlit)', v:'142 W'},
+  {t:'kv', k:'  Consumption (avg)', v:'103 W'},
+  {t:'kv', k:'  Battery DoD', v:'22%'},
+  {t:'kv', k:'Link budget', v:'GO (+6.2 dB)', c:'go'},
+  {t:'kv', k:'  Achievable rate', v:'148 Mbps'},
+  {t:'kv', k:'  Passes/day (Svalbard)', v:'6'},
+  {t:'kv', k:'  Daily downlink', v:'~42 GB'},
+  {t:'kv', k:'Orbit decay', v:'GO (12.4 yr natural)', c:'go'},
+  {t:'kv', k:'  FCC 5-yr compliance', v:'NEEDS ΔV (~18 m/s)', c:'warn'},
+  {t:'kv', k:'  Atmosphere model', v:'NRLMSISE-00'},
+  {t:'kv', k:'Mass budget', v:'WARN (8% margin)', c:'warn'},
+  {t:'kv', k:'  Margin remaining', v:'10 kg'},
+  {t:'kv', k:'Thermal', v:'GO (−18°C to +42°C)', c:'go'},
+  {t:'blank'},
+  {t:'section', v:'─── LAUNCH VEHICLE ────────────────────'},
+  {t:'kv', k:'Recommended', v:'Falcon 9 Transporter'},
+  {t:'kv', k:'Payload margin', v:'+98%', c:'go'},
+  {t:'kv', k:'Est. cost', v:'~$660K ($5,500/kg)'},
+  {t:'blank'},
+  {t:'prompt', v:'Mission design complete. Export ready._'},
+];
+
+let termRunning = false;
+async function runTerminal(){
+  if(termRunning) return;
+  termRunning = true;
+  const body = document.getElementById('termBody');
+  body.innerHTML = '';
+  for(let i=0; i<termLines.length; i++){
+    const l = termLines[i];
+    const div = document.createElement('div');
+    div.className = 'term-line';
+    div.style.animationDelay = '0s';
+    if(l.t === 'section'){
+      div.innerHTML = `<span class="section">${l.v}</span>`;
+    } else if(l.t === 'kv'){
+      div.innerHTML = `<span class="label">${l.k}</span><span class="val ${l.c||''}">${l.v}</span>`;
+    } else if(l.t === 'prompt'){
+      div.innerHTML = `<span class="prompt">▸ </span>${l.v.replace('_','')}<span class="term-cursor"></span>`;
+    } else {
+      div.innerHTML = '&nbsp;';
+    }
+    body.appendChild(div);
+    body.scrollTop = body.scrollHeight;
+    await new Promise(r=>setTimeout(r, l.t==='blank'?80:l.t==='section'?200:100));
+  }
+  termRunning = false;
+}
+
+// Auto-run terminal on first visible
+runTerminal();
+</script>
+</body>
+</html>
