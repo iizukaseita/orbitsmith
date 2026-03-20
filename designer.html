@@ -16,7 +16,7 @@
     --font-head:'Orbitron',sans-serif;--font-body:'IBM Plex Mono','Noto Sans JP',monospace;
   }
   body{background:var(--bg);color:var(--text);font-family:var(--font-body);overflow-x:hidden;line-height:1.6;}
-  .nav{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:1000;background:rgba(0,0,0,0.85);border-bottom:1px solid var(--border);backdrop-filter:blur(16px);}
+  .nav{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;gap:16px;padding:0 24px;z-index:1000;background:rgba(0,0,0,0.85);border-bottom:1px solid var(--border);backdrop-filter:blur(16px);}
   .logo{display:flex;align-items:center;gap:10px;text-decoration:none;}
   .logo-text{font-family:var(--font-head);font-weight:700;font-size:14px;letter-spacing:3px;color:#fff;}
   .logo-text span{color:var(--cyan);}
@@ -25,7 +25,7 @@
   .nav-link{font-family:var(--font-body);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.45);text-decoration:none;padding:4px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;transition:all 0.2s;flex-shrink:0;white-space:nowrap;}
   .nav-link:hover{color:var(--cyan);border-color:var(--cyan-line);}
   .nav-link.active{color:var(--cyan);border-color:var(--cyan-line);background:var(--cyan-glow);}
-  .lang-selector{position:relative;margin-left:4px;}
+  .lang-selector{position:relative;margin-left:auto;}
   .lang-current{font-family:var(--font-body);font-size:8px;letter-spacing:1.5px;color:rgba(255,255,255,0.4);padding:3px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;cursor:pointer;transition:all 0.2s;}
   .lang-current:hover{color:var(--cyan);border-color:var(--cyan-line);}
   .lang-dropdown{display:none;position:absolute;top:28px;right:0;background:rgba(4,8,16,0.95);border:1px solid rgba(255,255,255,0.08);border-radius:6px;overflow:hidden;z-index:2000;backdrop-filter:blur(12px);}
@@ -198,8 +198,12 @@
     .steps-nav::before{width:340px;}
     .step-dot{width:72px;}
     .step-dot .dot{width:26px;height:26px;font-size:10px;}
-    .mission-grid{grid-template-columns:1fr;}
-    .mission-icon svg{width:28px;height:28px;margin-bottom:10px;}
+    .mission-grid{grid-template-columns:repeat(3,1fr);gap:8px;}
+    .mission-card{padding:12px 10px;text-align:center;}
+    .mission-icon svg{width:18px;height:18px;margin-bottom:6px;}
+    .mission-name{font-size:9px;letter-spacing:1px;margin-bottom:0;}
+    .mission-desc{display:none;}
+    .mission-meta{display:none;}
     .term-body{font-size:10px;}
     .term-line .label{min-width:150px;}
   }
@@ -604,7 +608,7 @@ function goStep(n){
   window.scrollTo({top:0,behavior:'smooth'}); location.hash='#step'+n;
 }
 function renderMissions(){const mn=T('mName'),md=T('mDesc');document.getElementById('missionGrid').innerHTML=MISSIONS.map((m,i)=>`<div class="mission-card${i===selectedMission?' selected':''}" onclick="selectMission(${i})"><svg viewBox="0 0 36 36" fill="none" class="mission-icon">${m.icon}</svg><div class="mission-name">${mn[i]||m.name}</div><div class="mission-desc">${md[i]||m.desc}</div><div class="mission-meta"><span>${m.massRange}</span><span>${m.orbitTag}</span></div></div>`).join('');}
-function selectMission(i){selectedMission=i;document.querySelectorAll('.mission-card').forEach((c,j)=>c.classList.toggle('selected',j===i));applyMissionDefaults();}
+function selectMission(i){selectedMission=i;document.querySelectorAll('.mission-card').forEach((c,j)=>c.classList.toggle('selected',j===i));applyMissionDefaults();const card=document.querySelectorAll('.mission-card')[i];if(card){card.style.transition='all 0.3s ease';card.style.boxShadow='0 0 32px rgba(0,229,255,0.25)';card.style.borderColor='#00e5ff';setTimeout(()=>goStep(2),350);}}
 function applyMissionDefaults(){const m=MISSIONS[selectedMission];document.getElementById('cfg-orbitType').value=m.orbitType;setS('altitude',m.alt);setS('inclination',m.inc);setS('eccentricity',Math.round(m.ecc*1000));setS('mass',m.mass);setS('solarArea',Math.round(m.solarArea*10));setS('battery',m.battery);setS('designLife',m.designLife);document.getElementById('cfg-band').value=m.band;setS('txPower',m.txPower);setS('antennaGain',m.antennaGain);document.getElementById('cfg-gs').value=m.gs;updateGS();setS('payloadMass',m.payloadMass);setS('payloadPower',m.payloadPower);setS('dutyCycle',m.dutyCycle);setS('dataRate',m.dataRate);const od=ORBIT_DEFAULTS[m.orbitType];if(od)document.getElementById('preset-altitude').textContent=od.preset;upAll();}
 function setS(id,v){const e=document.getElementById('cfg-'+id);if(e)e.value=v;}
 function gV(id){return parseFloat(document.getElementById('cfg-'+id).value);}
