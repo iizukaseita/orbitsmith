@@ -9,6 +9,7 @@
 <link rel="icon" href="/favicon-192.png" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/5.0.0/satellite.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=IBM+Plex+Mono:wght@300;400;500&family=Noto+Sans+JP:wght@300;400;500&family=Noto+Sans+SC:wght@300;400;500&display=swap');
 
@@ -70,9 +71,13 @@
   .risk-bar{height:100%;border-radius:2px;background:linear-gradient(90deg,#00e5ff,#ffab00,#ff3d5a);transition:width 0.6s ease;}
 
   /* Horizontal scroll alerts - auto ticker */
-  .alerts-container{position:fixed;bottom:48px;left:310px;right:310px;z-index:100;overflow:hidden;white-space:nowrap;padding:6px 0;}
+  .alerts-container{position:fixed;bottom:48px;left:310px;right:310px;z-index:100;overflow-x:auto;overflow-y:hidden;white-space:nowrap;padding:6px 0;scrollbar-width:none;-webkit-overflow-scrolling:touch;cursor:grab;}
+  .alerts-container::-webkit-scrollbar{display:none;}
+  .alerts-container.grabbing{cursor:grabbing;}
   .alerts-track{display:inline-block;white-space:nowrap;animation:ticker-scroll 180s linear infinite;}
-  .alerts-container:hover .alerts-track{animation-play-state:paused;}
+  .alerts-container:hover .alerts-track,.alerts-container.paused .alerts-track{animation-play-state:paused;}
+  .alert-card{cursor:pointer;transition:border-color 0.2s;}
+  .alert-card:hover{border-color:rgba(255,61,90,0.5);}
   @keyframes ticker-scroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
   .alert-card{display:inline-block;background:rgba(255,61,90,0.08);border:1px solid rgba(255,61,90,0.2);backdrop-filter:blur(10px);border-radius:8px;padding:8px 16px;font-size:10px;color:#ff6b82;white-space:nowrap;margin-right:8px;vertical-align:top;}
   
@@ -132,6 +137,10 @@
   .popup-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;}
   .popup-field{font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.3);}
   .popup-val{font-family:'IBM Plex Mono',monospace;font-size:11px;color:rgba(255,255,255,0.75);margin-bottom:4px;}
+  .object-popup{cursor:grab;}
+  .object-popup.dragging{cursor:grabbing;user-select:none;}
+  .object-popup.popup-orange{border-color:rgba(255,110,64,0.3);}
+  .object-popup.popup-orange .popup-name{color:#ff6e40;}
 
   /* Search */
   .search-container{position:relative;margin-bottom:4px;}
@@ -146,6 +155,27 @@
   .search-item-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
   .search-item-name{font-size:11px;color:rgba(255,255,255,0.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .search-item-id{font-size:9px;color:rgba(255,255,255,0.3);margin-left:auto;flex-shrink:0;font-family:'IBM Plex Mono',monospace;}
+
+  /* Popup mini search */
+  .popup-mini-search{margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);position:relative;}
+  .popup-mini-input{width:100%;padding:5px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#d0d4dc;background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.12);border-radius:4px;outline:none;height:28px;transition:border-color 0.2s;}
+  .popup-mini-input:focus{border-color:rgba(0,229,255,0.35);}
+  .popup-mini-input::placeholder{color:rgba(255,255,255,0.25);}
+  .popup-mini-results{position:absolute;top:100%;left:0;right:0;background:rgba(6,10,18,0.97);border:1px solid rgba(255,255,255,0.1);border-radius:0 0 6px 6px;max-height:180px;overflow-y:auto;z-index:600;display:none;backdrop-filter:blur(12px);}
+  .popup-mini-results.open{display:block;}
+  .popup-mini-item{padding:6px 8px;cursor:pointer;transition:background 0.15s;display:flex;align-items:center;gap:6px;border-bottom:1px solid rgba(255,255,255,0.03);}
+  .popup-mini-item:hover{background:rgba(0,229,255,0.08);}
+  .popup-mini-item .pmi-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+  .popup-mini-item .pmi-name{font-size:10px;color:rgba(255,255,255,0.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .popup-mini-item .pmi-id{font-size:8px;color:rgba(255,255,255,0.3);margin-left:auto;flex-shrink:0;}
+  /* Selection indicator */
+  .sel-indicator{position:fixed;bottom:52px;left:20px;z-index:150;display:flex;flex-direction:column;gap:4px;max-width:260px;}
+  .sel-chip{display:flex;align-items:center;gap:6px;padding:5px 10px;background:rgba(6,10,18,0.92);border:1px solid rgba(255,255,255,0.08);border-radius:6px;backdrop-filter:blur(10px);animation:sel-in 0.3s ease;}
+  @keyframes sel-in{from{opacity:0;transform:translateX(-10px);}to{opacity:1;transform:translateX(0);}}
+  .sel-chip-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+  .sel-chip-name{font-size:9px;color:rgba(255,255,255,0.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;}
+  .sel-chip-x{background:none;border:none;color:rgba(255,255,255,0.3);font-size:12px;cursor:pointer;padding:0 2px;margin-left:auto;line-height:1;}
+  .sel-chip-x:hover{color:#ff5252;}
 
   .loading-screen{position:fixed;inset:0;background:#000;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 1s ease;}
   .loading-screen.fade-out{opacity:0;pointer-events:none;}
@@ -171,6 +201,28 @@
     .alerts-container{position:relative;left:auto;right:auto;bottom:auto;padding:6px 12px;}
     .disclaimer{position:relative;bottom:auto;left:auto;max-width:100%;padding:8px 12px;}
     body{overflow-y:auto;padding-top:52px;}
+  }
+  @media(max-width:768px){
+    /* Popups fixed to bottom on mobile */
+    .object-popup.show{position:fixed!important;bottom:56px!important;left:10px!important;right:10px!important;top:auto!important;width:auto!important;max-width:none!important;z-index:1000;padding:12px;font-size:10px;}
+    #object-popup-2.show{position:fixed!important;bottom:56px!important;left:10px!important;right:10px!important;top:auto!important;width:auto!important;max-width:none!important;z-index:999;}
+    /* When both popups visible, stack them */
+    #object-popup.show~#object-popup-2.show{bottom:auto!important;top:56px!important;}
+    .object-popup .popup-name{font-size:12px;}
+    .object-popup .popup-grid{gap:2px 8px;}
+    .object-popup .popup-field{font-size:7px;}
+    .object-popup .popup-val{font-size:10px;margin-bottom:2px;}
+    .object-popup .popup-close{width:44px;height:44px;font-size:22px;display:flex;align-items:center;justify-content:center;top:2px;right:2px;}
+    .object-popup .popup-mini-search{margin-top:6px;}
+    .object-popup .popup-mini-input{font-size:10px;padding:6px 8px;height:28px;}
+    /* Selection indicator at top */
+    .sel-indicator{position:fixed!important;top:54px;left:0;right:0;bottom:auto!important;max-width:none;flex-direction:row;flex-wrap:wrap;gap:3px;padding:4px 10px;z-index:150;}
+    .sel-chip{padding:3px 7px;}
+    .sel-chip-name{font-size:8px;max-width:100px;}
+    /* Hide panels when orbit selected (via JS class on body) */
+    body.orbit-active .side-panel,body.orbit-active .right-panel,body.orbit-active .bottom-bar,body.orbit-active .alerts-container,body.orbit-active .disclaimer{display:none!important;}
+    body.orbit-active #canvas-container{position:fixed!important;top:0;left:0;width:100%;height:100%;min-height:100vh;z-index:1;}
+    body.orbit-active{overflow:hidden;}
   }
   @media(max-width:600px){
     .top-bar{height:44px;padding:0 10px;}
@@ -378,7 +430,20 @@
   <div class="popup-norad"></div>
   <div class="popup-type"><div class="popup-type-dot"></div><span class="popup-type-label"></span></div>
   <div class="popup-grid"></div>
+  <div class="popup-mini-search" id="popup-mini-search" style="display:none">
+    <input class="popup-mini-input" id="popup-mini-input" placeholder="Add 2nd object..." autocomplete="off">
+    <div class="popup-mini-results" id="popup-mini-results"></div>
+  </div>
 </div>
+<!-- OBJECT POPUP 2 (2nd object, orange) -->
+<div class="object-popup popup-orange" id="object-popup-2">
+  <button class="popup-close" id="popup-close-btn-2">&times;</button>
+  <div class="popup-name"></div>
+  <div class="popup-norad"></div>
+  <div class="popup-type"><div class="popup-type-dot"></div><span class="popup-type-label"></span></div>
+  <div class="popup-grid"></div>
+</div>
+<div class="sel-indicator" id="sel-indicator"></div>
 
 <div class="disclaimer" data-i18n="disclaimer">⚠ For informational and educational purposes only. Orbital data may be inaccurate or outdated. Do not use for operational decisions. OrbitSmith assumes no liability. © 2026 OrbitSmith. All rights reserved.</div>
 
@@ -395,6 +460,9 @@ let totalCount = 23800;
 const TYPE_MAP = ['payload','rocketBody','debris','unknown'];
 const FILTER_MAP = {all:'all',active:0,debris:2,rockets:1,constellations:'constellation'};
 var isTwoFinger=false,cameraAnimTarget=null,selectedObjId=null,tapStartInfo=null;
+// Orbit path state (declared here so animate() can safely reference them)
+var orbitSelections=[]; // [{noradId,color,tube,pulse,glow}]  max 2
+var orbitDimActive=false; // true when objects are dimmed
 
 // ===== DEMO FALLBACK =====
 const DEMO_SAT_DB={
@@ -729,7 +797,7 @@ function animD(pts,dt){
   }
   pts.geometry.attributes.position.needsUpdate=true;
 }
-function animate(){requestAnimationFrame(animate);const dt=clock.getDelta();earth.rotation.y+=dt*.04;Object.values(layers).forEach(l=>animD(l,dt));if(cameraAnimTarget){sph.theta+=(cameraAnimTarget.theta-sph.theta)*0.05;sph.phi+=(cameraAnimTarget.phi-sph.phi)*0.05;sph.radius+=(cameraAnimTarget.radius-sph.radius)*0.05;if(Math.abs(sph.theta-cameraAnimTarget.theta)<0.005&&Math.abs(sph.phi-cameraAnimTarget.phi)<0.005&&Math.abs(sph.radius-cameraAnimTarget.radius)<0.01)cameraAnimTarget=null;}else if(!drag)sph.theta+=dt*.012;uCam();renderer.render(scene,camera);}
+function animate(){requestAnimationFrame(animate);const dt=clock.getDelta();earth.rotation.y+=dt*7.272e-5;Object.values(layers).forEach(l=>animD(l,dt));if(cameraAnimTarget){sph.theta+=(cameraAnimTarget.theta-sph.theta)*0.05;sph.phi+=(cameraAnimTarget.phi-sph.phi)*0.05;sph.radius+=(cameraAnimTarget.radius-sph.radius)*0.05;if(Math.abs(sph.theta-cameraAnimTarget.theta)<0.005&&Math.abs(sph.phi-cameraAnimTarget.phi)<0.005&&Math.abs(sph.radius-cameraAnimTarget.radius)<0.01)cameraAnimTarget=null;}else if(!drag&&orbitSelections.length===0)sph.theta+=dt*.012;uCam();renderer.render(scene,camera);}
 
 function animateCounter(el,target,dur){const st=performance.now(),init=parseInt(el.textContent.replace(/,/g,''))||0;function u(now){const p=Math.min((now-st)/dur,1);el.textContent=Math.floor(init+(target-init)*(1-Math.pow(1-p,3))).toLocaleString();if(p<1)requestAnimationFrame(u);}requestAnimationFrame(u);}
 function uTime(){document.getElementById('utc-time').textContent=new Date().toISOString().replace('T',' ').substring(0,19)+' UTC';}
@@ -963,6 +1031,7 @@ function showPopup(noradId,sx,sy){
     `<div><div class="popup-field">INCLINATION</div><div class="popup-val">${inc}</div></div>`+
     `<div><div class="popup-field">PERIOD</div><div class="popup-val">${period} min</div></div>`+extra;
   popup.classList.add('show');
+  if(typeof orb_updateMiniSearch==='function')orb_updateMiniSearch();
   // Position: clamp to viewport
   requestAnimationFrame(()=>{
     const pw=popup.offsetWidth,ph=popup.offsetHeight;
@@ -980,6 +1049,47 @@ function hidePopup(){
   document.getElementById('object-popup').classList.remove('show');
   if(window._hlSprite)window._hlSprite.visible=false;
   selectedObjId=null;
+}
+
+function showPopup2(noradId){
+  var sat=SAT_DB[noradId];if(!sat)return;
+  var popup=document.getElementById('object-popup-2');
+  popup.querySelector('.popup-name').textContent=sat.n;
+  popup.querySelector('.popup-norad').textContent='NORAD '+noradId;
+  var tc=getTypeColor(sat.t);
+  popup.querySelector('.popup-type-dot').style.background=tc;
+  popup.querySelector('.popup-type-label').textContent=getTypeLabel(sat.t);
+  var period=sat.mm?(1440/sat.mm).toFixed(1):(sat.alt?((2*Math.PI*Math.sqrt(Math.pow(6371+(sat.alt||400),3)/398600.4))/60).toFixed(1):'—');
+  var perigee=sat.alt!=null?Math.round(sat.alt)+' km':'—';
+  var apogee=sat.apogee!=null?Math.round(sat.apogee)+' km':(sat.alt!=null?'~'+Math.round(sat.alt)+' km':'—');
+  var inc=sat.inc!=null?sat.inc.toFixed(1)+'°':'—';
+  popup.querySelector('.popup-grid').innerHTML=
+    '<div><div class="popup-field">PERIGEE</div><div class="popup-val">'+perigee+'</div></div>'+
+    '<div><div class="popup-field">APOGEE</div><div class="popup-val">'+apogee+'</div></div>'+
+    '<div><div class="popup-field">INCLINATION</div><div class="popup-val">'+inc+'</div></div>'+
+    '<div><div class="popup-field">PERIOD</div><div class="popup-val">'+period+' min</div></div>';
+  popup.classList.add('show');
+  // Position next to popup 1
+  requestAnimationFrame(function(){
+    var p1=document.getElementById('object-popup');
+    var p1r=p1.getBoundingClientRect();
+    var pw=popup.offsetWidth,ph=popup.offsetHeight;
+    var left,top;
+    if(p1r.left-pw-12>0){
+      left=p1r.left-pw-8;top=p1r.top;
+    }else if(p1r.right+pw+12<window.innerWidth){
+      left=p1r.right+8;top=p1r.top;
+    }else{
+      left=p1r.left;top=p1r.bottom+8;
+    }
+    if(left<12)left=12;if(top<12)top=12;
+    if(top+ph>window.innerHeight-12)top=window.innerHeight-ph-12;
+    popup.style.left=left+'px';popup.style.top=top+'px';
+  });
+}
+
+function hidePopup2(){
+  document.getElementById('object-popup-2').classList.remove('show');
 }
 
 function findObjPosition(noradId){
@@ -1127,6 +1237,419 @@ renderer.domElement.addEventListener('touchmove',function(e){
 renderer.domElement.addEventListener('touchend',function(e){
   if(e.touches.length<2)isTwoFinger=false;
 });
+
+// ====================================================================
+// FEATURE 4: ORBIT PATH VISUALIZATION (kepler3D-based, same frame as points)
+// ====================================================================
+var ORBIT_COLORS={Active:'#00e5ff',Station:'#00e5ff',Debris:'#ff5252',Rocket:'#ffc107',Inactive:'#888888',Unknown:'#888888'};
+var MINI_SEARCH_PH={en:'Add 2nd object...',ja:'2つ目を追加...',zh:'添加第2个对象...',es:'Añadir 2.° objeto...'};
+
+// Compute closed orbit ring using raw kepler3D positions (no θ baked in).
+// The render loop applies tube.rotation.y = -currentTheta each frame to align with animated points.
+function orb_computeRing(noradId){
+  var sat=SAT_DB[noradId]; if(!sat||!sat.sma)return[];
+  var sma=sat.sma, inc=sat.inc||0, raan=sat.raan||0, ecc=sat.ecc||0, argp=sat.argp||0;
+  var pts=[];
+  for(var ma=0;ma<=360;ma++){
+    var p=kepler3D(sma,inc,raan,ecc,argp,ma);
+    pts.push(new THREE.Vector3(p[0],p[1],p[2]));
+  }
+  return pts;
+}
+
+// Create TubeGeometry orbit mesh
+function orb_createTube(points,colorStr){
+  if(points.length<4)return null;
+  var curve=new THREE.CatmullRomCurve3(points,true,'catmullrom',0.5); // closed=true
+  var geom=new THREE.TubeGeometry(curve,400,0.003,4,true); // tubularSegments, radius, radial, closed
+  var mat=new THREE.MeshBasicMaterial({color:new THREE.Color(colorStr),transparent:true,opacity:0.7,side:THREE.DoubleSide});
+  return new THREE.Mesh(geom,mat);
+}
+
+// Sprite helpers
+function orb_createPulse(pos,colorStr){
+  var c=document.createElement('canvas');c.width=64;c.height=64;var x=c.getContext('2d');
+  var col=new THREE.Color(colorStr);
+  var r=Math.round(col.r*255),g=Math.round(col.g*255),b=Math.round(col.b*255);
+  var grd=x.createRadialGradient(32,32,0,32,32,32);
+  grd.addColorStop(0,'rgba('+r+','+g+','+b+',1)');grd.addColorStop(0.4,'rgba('+r+','+g+','+b+',0.6)');grd.addColorStop(1,'rgba('+r+','+g+','+b+',0)');
+  x.fillStyle=grd;x.fillRect(0,0,64,64);
+  var tex=new THREE.CanvasTexture(c);
+  var mat=new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false,blending:THREE.AdditiveBlending});
+  var sp=new THREE.Sprite(mat);sp.position.copy(pos);
+  sp.scale.set(0.12,0.12,1);sp.userData={baseScale:0.12,phase:Math.random()*6.28};
+  return sp;
+}
+function orb_createGlow(pos,colorStr){
+  var c=document.createElement('canvas');c.width=64;c.height=64;var x=c.getContext('2d');
+  var col=new THREE.Color(colorStr);
+  var r=Math.round(col.r*255),g=Math.round(col.g*255),b=Math.round(col.b*255);
+  var grd=x.createRadialGradient(32,32,0,32,32,32);
+  grd.addColorStop(0,'rgba('+r+','+g+','+b+',0.4)');grd.addColorStop(0.5,'rgba('+r+','+g+','+b+',0.1)');grd.addColorStop(1,'rgba('+r+','+g+','+b+',0)');
+  x.fillStyle=grd;x.fillRect(0,0,64,64);
+  var tex=new THREE.CanvasTexture(c);
+  var mat=new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false,blending:THREE.AdditiveBlending});
+  var sp=new THREE.Sprite(mat);sp.position.copy(pos);sp.scale.set(0.24,0.24,1);
+  return sp;
+}
+
+// Dim / restore
+function orb_dimOthers(dim){
+  orbitDimActive=dim;
+  Object.values(layers).forEach(function(l){
+    if(!l)return;l.material.opacity=dim?0.15:1.0;l.material.transparent=true;l.material.needsUpdate=true;
+  });
+  // Mobile: toggle fullscreen orbit view
+  if(dim)document.body.classList.add('orbit-active');
+  else document.body.classList.remove('orbit-active');
+  if(window.innerWidth<=768)setTimeout(function(){window.dispatchEvent(new Event('resize'));},50);
+}
+
+// Selection indicator UI
+function orb_updateIndicator(){
+  var el=document.getElementById('sel-indicator');
+  if(!orbitSelections.length){el.innerHTML='';return;}
+  el.innerHTML=orbitSelections.map(function(s,i){
+    var sat=SAT_DB[s.noradId];var nm=sat?sat.n:s.noradId;
+    return '<div class="sel-chip"><div class="sel-chip-dot" style="background:'+s.color+'"></div><span class="sel-chip-name">'+nm+'</span><button class="sel-chip-x" data-oi="'+i+'">&times;</button></div>';
+  }).join('');
+  el.querySelectorAll('.sel-chip-x').forEach(function(btn){
+    btn.addEventListener('click',function(e){e.stopPropagation();orb_clearAll();});
+  });
+}
+
+// Mini search
+function orb_updateMiniSearch(){
+  var ms=document.getElementById('popup-mini-search');if(!ms)return;
+  var mi=document.getElementById('popup-mini-input');
+  if(orbitSelections.length===1){
+    ms.style.display='block';
+    if(mi){mi.value='';mi.placeholder=MINI_SEARCH_PH[currentLang]||MINI_SEARCH_PH.en;}
+  }else{ms.style.display='none';}
+  var mr=document.getElementById('popup-mini-results');if(mr)mr.classList.remove('open');
+}
+(function(){
+  var mi=document.getElementById('popup-mini-input');
+  var mr=document.getElementById('popup-mini-results');
+  if(!mi||!mr)return;
+  mi.addEventListener('input',function(){
+    var q=this.value.toLowerCase().trim();
+    if(q.length<2){mr.classList.remove('open');return;}
+    var selIds={};orbitSelections.forEach(function(s){selIds[s.noradId]=true;});
+    var matches=Object.entries(SAT_DB).filter(function(e){return!selIds[e[0]]&&(e[0].includes(q)||e[1].n.toLowerCase().includes(q));}).slice(0,5);
+    if(!matches.length){mr.innerHTML='<div style="padding:6px 8px;font-size:9px;color:rgba(255,255,255,0.3)">No results</div>';mr.classList.add('open');return;}
+    mr.innerHTML=matches.map(function(e){
+      var color=getTypeColor(e[1].t);
+      return '<div class="popup-mini-item" data-id="'+e[0]+'"><div class="pmi-dot" style="background:'+color+'"></div><span class="pmi-name">'+e[1].n+'</span><span class="pmi-id">'+e[0]+'</span></div>';
+    }).join('');
+    mr.classList.add('open');
+    mr.querySelectorAll('.popup-mini-item').forEach(function(item){
+      item.addEventListener('click',function(ev){
+        ev.stopPropagation();var nid=this.dataset.id;mr.classList.remove('open');mi.value='';
+        orb_addObject(nid,'#ff6e40');orb_updateMiniSearch();showPopup2(nid);
+      });
+    });
+  });
+  mi.addEventListener('click',function(e){e.stopPropagation();});
+  mi.addEventListener('focus',function(e){e.stopPropagation();});
+})();
+
+// --- Core: add orbit for an object ---
+// hitPoint: optional THREE.Vector3 from intersection.point (click position)
+// hitLayer: optional THREE.Points object that was hit
+// hitIndex: optional index of the hit point in the geometry
+function orb_addObject(noradId,forceColor,hitPoint,hitLayer,hitIndex){
+  if(orbitSelections.length>=2)return;
+  if(orbitSelections.some(function(s){return s.noradId===noradId;}))return;
+  var sat=SAT_DB[noradId];if(!sat)return;
+
+  var color=forceColor||(ORBIT_COLORS[sat.t]||'#888888');
+
+  // If no hitLayer/hitIndex, find them from the layers
+  if(!hitLayer||hitIndex==null){
+    var nid=String(noradId);
+    ['leo','meo','geo','heo'].forEach(function(regime){
+      var l=layers[regime];
+      if(!l||!l.geometry.userData.noradIds||hitLayer)return;
+      var ids=l.geometry.userData.noradIds;
+      var idx=ids.indexOf(nid);
+      if(idx!==-1){hitLayer=l;hitIndex=idx;}
+    });
+  }
+
+  // Compute orbit ring using raw kepler3D (render loop handles rotation)
+  var ringPts=orb_computeRing(noradId);
+  var tube=orb_createTube(ringPts,color);
+
+  // Store initial kepler3D position for θ tracking
+  var initKeplerPos=null;
+  if(sat.sma){
+    var p0=kepler3D(sat.sma,sat.inc||0,sat.raan||0,sat.ecc||0,sat.argp||0,sat.ma||0);
+    initKeplerPos={x:p0[0],z:p0[2]};
+  }
+
+  // Highlight selected point by changing its color to white
+  var origColor=null;
+  if(hitLayer&&hitIndex!=null){
+    var cols=hitLayer.geometry.attributes.color.array;
+    var ci=hitIndex*3;
+    origColor=[cols[ci],cols[ci+1],cols[ci+2]];
+    cols[ci]=1;cols[ci+1]=1;cols[ci+2]=1;
+    hitLayer.geometry.attributes.color.needsUpdate=true;
+  }
+
+  if(tube)scene.add(tube);
+
+  // Create pulse dot and glow at buffer position
+  var pulse=null,glow=null;
+  if(hitLayer&&hitIndex!=null){
+    var bpa=hitLayer.geometry.attributes.position.array;
+    var bufPos=new THREE.Vector3(bpa[hitIndex*3],bpa[hitIndex*3+1],bpa[hitIndex*3+2]);
+    pulse=orb_createPulse(bufPos,color);scene.add(pulse);
+    glow=orb_createGlow(bufPos,color);scene.add(glow);
+  }
+
+  orbitSelections.push({
+    noradId:noradId,color:color,tube:tube,pulse:pulse,glow:glow,
+    pointsObj:hitLayer||null, pointIdx:(hitIndex!=null?hitIndex:-1),
+    initKeplerPos:initKeplerPos,
+    origColor:origColor, colorLayer:hitLayer||null, colorIdx:(hitIndex!=null?hitIndex*3:-1)
+  });
+
+  orb_dimOthers(true);
+  // Zoom out to initial view distance so full orbit is visible
+  if(orbitSelections.length===1){
+    var zoomR=window.innerWidth<=768?8:6;
+    cameraAnimTarget={theta:sph.theta,phi:sph.phi,radius:Math.max(sph.radius,zoomR)};
+  }
+  if(window._hlSprite)window._hlSprite.visible=false;
+  orb_updateIndicator();orb_updateMiniSearch();
+}
+
+// Clear all
+function orb_clearAll(){
+  orbitSelections.forEach(function(s){
+    if(s.tube){scene.remove(s.tube);s.tube.geometry.dispose();s.tube.material.dispose();}
+    if(s.pulse){scene.remove(s.pulse);s.pulse.material.map.dispose();s.pulse.material.dispose();}
+    if(s.glow){scene.remove(s.glow);s.glow.material.map.dispose();s.glow.material.dispose();}
+    // Restore original point color
+    if(s.origColor&&s.colorLayer&&s.colorIdx>=0){
+      var cols=s.colorLayer.geometry.attributes.color.array;
+      cols[s.colorIdx]=s.origColor[0];cols[s.colorIdx+1]=s.origColor[1];cols[s.colorIdx+2]=s.origColor[2];
+      s.colorLayer.geometry.attributes.color.needsUpdate=true;
+    }
+  });
+  orbitSelections=[];
+  orb_dimOthers(false);hidePopup();hidePopup2();orb_updateIndicator();orb_updateMiniSearch();
+  // Reset drag state
+  document.getElementById('object-popup')._userDragged=false;
+  document.getElementById('object-popup-2')._userDragged=false;
+}
+
+// --- Override click handler ---
+(function(){
+  window._origOnCanvasInteract=onCanvasInteract;
+  onCanvasInteract=function(cx,cy){
+    if(orbitSelections.length>0){orb_clearAll();return;}
+    var rect=renderer.domElement.getBoundingClientRect();
+    var mouse=new THREE.Vector2(((cx-rect.left)/rect.width)*2-1,-((cy-rect.top)/rect.height)*2+1);
+    raycaster.setFromCamera(mouse,camera);
+    // Collect ALL raycast hits, then pick closest in screen space
+    var allHits=[];
+    ['leo','meo','geo','heo'].forEach(function(regime){
+      var l=layers[regime];if(!l)return;
+      var hits=raycaster.intersectObject(l);
+      hits.forEach(function(h){allHits.push({hit:h,layer:l});});
+    });
+    var closest=null,closestScreenDist=Infinity;
+    allHits.forEach(function(entry){
+      var idx=entry.hit.index;
+      var pa=entry.layer.geometry.attributes.position.array;
+      var pt=new THREE.Vector3(pa[idx*3],pa[idx*3+1],pa[idx*3+2]);
+      var proj=pt.clone().project(camera);
+      var srect=renderer.domElement.getBoundingClientRect();
+      var sx=(proj.x*0.5+0.5)*srect.width+srect.left;
+      var sy=(-proj.y*0.5+0.5)*srect.height+srect.top;
+      var sd=Math.sqrt((cx-sx)*(cx-sx)+(cy-sy)*(cy-sy));
+      if(sd<closestScreenDist){closestScreenDist=sd;closest=entry;}
+    });
+    // Reject if closest hit is too far from click in screen space (max 20px)
+    if(closestScreenDist>20)closest=null;
+    if(closest&&closest.layer.geometry.userData.noradIds){
+      var idx=closest.hit.index;
+      var nid=closest.layer.geometry.userData.noradIds[idx];
+      if(nid&&SAT_DB[nid]){
+        showPopup(nid,cx,cy);
+        orb_addObject(nid,null,null,closest.layer,idx);
+        return;
+      }
+    }
+    hidePopup();
+  };
+})();
+
+document.getElementById('popup-close-btn').onclick=function(e){e.stopPropagation();orb_clearAll();};
+document.getElementById('popup-close-btn-2').onclick=function(e){e.stopPropagation();orb_clearAll();};
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&orbitSelections.length)orb_clearAll();});
+
+// Override search click
+(function(){
+  var si=document.getElementById('search-input'),sr=document.getElementById('search-results');
+  sr.addEventListener('click',function(e){
+    var item=e.target.closest('.search-item');if(!item)return;
+    var nid=item.dataset.id;if(!nid||!SAT_DB[nid])return;
+    e.stopPropagation();si.value=SAT_DB[nid].n;sr.classList.remove('open');
+    orb_clearAll();orb_addObject(nid);
+    setTimeout(function(){
+      var pos=findObjPosition(nid);
+      if(pos){var pr=pos.clone().project(camera);var rc=renderer.domElement.getBoundingClientRect();showPopup(nid,(pr.x*0.5+0.5)*rc.width+rc.left,(-pr.y*0.5+0.5)*rc.height+rc.top);orb_updateMiniSearch();}
+    },900);
+  },true);
+})();
+
+// CDM ticker: manual scroll + click pair
+(function(){
+  var isDrag=false,startX=0,scrollL=0,pauseTimer=null;
+  function pauseTicker(){ac.classList.add('paused');if(pauseTimer)clearTimeout(pauseTimer);pauseTimer=setTimeout(function(){ac.classList.remove('paused');},3000);}
+  ac.addEventListener('mousedown',function(e){isDrag=true;startX=e.pageX;scrollL=ac.scrollLeft;ac.classList.add('grabbing');});
+  document.addEventListener('mousemove',function(e){if(!isDrag)return;e.preventDefault();ac.scrollLeft=scrollL-(e.pageX-startX);});
+  document.addEventListener('mouseup',function(){if(!isDrag)return;isDrag=false;ac.classList.remove('grabbing');pauseTicker();});
+  ac.addEventListener('mouseenter',function(){pauseTicker();});
+  ac.addEventListener('mouseleave',function(){pauseTicker();});
+  ac.addEventListener('touchstart',function(){pauseTicker();},{passive:true});
+  ac.addEventListener('touchend',function(){pauseTicker();},{passive:true});
+  ac.addEventListener('click',function(e){
+    var card=e.target.closest('.alert-card');if(!card)return;
+    var text=card.textContent;
+    var match=text.match(/CONJUNCTION\s+(.+?)\s+×\s+(.+?)\s+—/);if(!match)return;
+    var name1=match[1].trim(),name2=match[2].trim(),id1=null,id2=null;
+    for(var id in SAT_DB){if(SAT_DB[id].n===name1)id1=id;if(SAT_DB[id].n===name2)id2=id;if(id1&&id2)break;}
+    if(!id1&&!id2)return;
+    orb_clearAll();
+    if(id1)orb_addObject(id1);if(id2)orb_addObject(id2,'#ff6e40');
+    if(id1){var rc=card.getBoundingClientRect();showPopup(id1,rc.left,rc.top-200);orb_updateMiniSearch();}
+    if(id2)showPopup2(id2);
+  });
+})();
+
+// Render loop patch: read live positions from geometry buffer, update tube/pulse/glow
+(function(){
+  var origRender=renderer.render.bind(renderer);
+  renderer.render=function(s,c){
+    var now=performance.now();
+
+    orbitSelections.forEach(function(sel){
+      if(sel.pointsObj&&sel.pointIdx>=0){
+        var pa=sel.pointsObj.geometry.attributes.position.array;
+        var ix=sel.pointIdx*3;
+        var px=pa[ix],py=pa[ix+1],pz=pa[ix+2];
+
+        // Update pulse/glow to live buffer position
+        if(sel.pulse)sel.pulse.position.set(px,py,pz);
+        if(sel.glow)sel.glow.position.set(px,py,pz);
+
+        // Update tube rotation
+        if(sel.tube&&sel.initKeplerPos){
+          var currentTheta=Math.atan2(px,pz)-Math.atan2(sel.initKeplerPos.x,sel.initKeplerPos.z);
+          sel.tube.rotation.y=currentTheta;
+        }
+      }
+      // Pulse scale animation
+      if(sel.pulse){
+        var ph=sel.pulse.userData.phase||0;
+        var f=0.8+0.4*Math.sin(now*0.004+ph);
+        var bs=sel.pulse.userData.baseScale;
+        sel.pulse.scale.set(bs*f,bs*f,1);
+      }
+    });
+
+    // Track popup position to follow selected object (desktop only, mobile uses CSS fixed)
+    // Skip if user has manually dragged the popup
+    var isMobile=window.innerWidth<=768;
+    var popup=document.getElementById('object-popup');
+    if(!isMobile&&!popup._userDragged&&popup.classList.contains('show')&&orbitSelections.length>0){
+      var sel0=orbitSelections[0];
+      if(sel0.pointsObj&&sel0.pointIdx>=0){
+        var pa0=sel0.pointsObj.geometry.attributes.position.array;
+        var i0=sel0.pointIdx*3;
+        var trackPos=new THREE.Vector3(pa0[i0],pa0[i0+1],pa0[i0+2]).project(camera);
+        var rc=renderer.domElement.getBoundingClientRect();
+        var tsx=(trackPos.x*0.5+0.5)*rc.width+rc.left;
+        var tsy=(-trackPos.y*0.5+0.5)*rc.height+rc.top;
+        var pw=popup.offsetWidth,ph=popup.offsetHeight;
+        var left=tsx+16,top=tsy-ph/2;
+        if(left+pw>window.innerWidth-12)left=tsx-pw-16;
+        if(left<12)left=12;if(top<12)top=12;
+        if(top+ph>window.innerHeight-12)top=window.innerHeight-ph-12;
+        popup.style.left=left+'px';popup.style.top=top+'px';
+      }
+    }
+
+    // Track popup-2 position for 2nd selected object
+    var popup2=document.getElementById('object-popup-2');
+    if(!isMobile&&!popup2._userDragged&&popup2.classList.contains('show')&&orbitSelections.length>1){
+      var sel1=orbitSelections[1];
+      if(sel1.pointsObj&&sel1.pointIdx>=0){
+        var pa1=sel1.pointsObj.geometry.attributes.position.array;
+        var i1=sel1.pointIdx*3;
+        var trackPos2=new THREE.Vector3(pa1[i1],pa1[i1+1],pa1[i1+2]).project(camera);
+        var rc2=renderer.domElement.getBoundingClientRect();
+        var tsx2=(trackPos2.x*0.5+0.5)*rc2.width+rc2.left;
+        var tsy2=(-trackPos2.y*0.5+0.5)*rc2.height+rc2.top;
+        var pw2=popup2.offsetWidth,ph2=popup2.offsetHeight;
+        var left2=tsx2+16,top2=tsy2-ph2/2;
+        if(left2+pw2>window.innerWidth-12)left2=tsx2-pw2-16;
+        if(left2<12)left2=12;if(top2<12)top2=12;
+        if(top2+ph2>window.innerHeight-12)top2=window.innerHeight-ph2-12;
+        popup2.style.left=left2+'px';popup2.style.top=top2+'px';
+      }
+    }
+
+    origRender(s,c);
+  };
+})();
+
+// ===== DRAGGABLE POPUPS =====
+(function(){
+  function makeDraggable(el){
+    var dx=0,dy=0,sx=0,sy=0,dragging=false;
+    function onDown(e){
+      // Don't drag from buttons, inputs, or close btn
+      if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT')return;
+      e.preventDefault();
+      var ev=e.touches?e.touches[0]:e;
+      sx=ev.clientX;sy=ev.clientY;
+      var r=el.getBoundingClientRect();
+      dx=r.left-sx;dy=r.top-sy;
+      dragging=true;
+      el.classList.add('dragging');
+    }
+    function onMove(e){
+      if(!dragging)return;
+      var ev=e.touches?e.touches[0]:e;
+      var nx=ev.clientX+dx,ny=ev.clientY+dy;
+      // Clamp to viewport
+      nx=Math.max(0,Math.min(nx,window.innerWidth-el.offsetWidth));
+      ny=Math.max(0,Math.min(ny,window.innerHeight-el.offsetHeight));
+      el.style.left=nx+'px';el.style.top=ny+'px';
+      el.style.right='auto';el.style.bottom='auto';
+      el._userDragged=true;
+    }
+    function onUp(){
+      if(!dragging)return;
+      dragging=false;
+      el.classList.remove('dragging');
+    }
+    el.addEventListener('mousedown',onDown);
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+    el.addEventListener('touchstart',onDown,{passive:false});
+    document.addEventListener('touchmove',onMove,{passive:false});
+    document.addEventListener('touchend',onUp);
+  }
+  makeDraggable(document.getElementById('object-popup'));
+  makeDraggable(document.getElementById('object-popup-2'));
+})();
 
 </script>
 </body>
